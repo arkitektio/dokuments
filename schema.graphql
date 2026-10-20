@@ -1,0 +1,252 @@
+"""
+Temporary Credentials for a file download that can be used by a Client (e.g. in a python datalayer)
+"""
+type AccessCredentials {
+  accessKey: String!
+  secretKey: String!
+  sessionToken: String!
+  bucket: String!
+  key: String!
+  path: String!
+}
+
+type BigFileStore {
+  id: ID!
+  path: String!
+  bucket: String!
+  key: String!
+  presignedUrl: String!
+}
+
+input CreateDocumentInput {
+  file: ID = null
+  title: String!
+}
+
+input CreatePageInput {
+  image: FileLike!
+  index: Int!
+  document: ID!
+  ocrResult: OCRPageResultInput!
+  content: String = null
+}
+
+"""
+Temporary Credentials for a file upload that can be used by a Client (e.g. in a python datalayer)
+"""
+type Credentials {
+  status: String!
+  accessKey: String!
+  secretKey: String!
+  sessionToken: String!
+  datalayer: String!
+  bucket: String!
+  key: String!
+  store: String!
+}
+
+input DeleteFileInput {
+  id: ID!
+}
+
+type Document {
+  id: ID!
+  file: File!
+  title: String!
+  pageCount: Int
+  ocrEngine: String!
+  processedAt: String
+  pages(filters: PageFilter, pagination: OffsetPaginationInput): [Page!]!
+}
+
+input DocumentFilter {
+  ids: [ID!]
+  search: String
+  id: ID
+  name: StrFilterLookup
+  AND: DocumentFilter
+  OR: DocumentFilter
+  NOT: DocumentFilter
+  DISTINCT: Boolean
+}
+
+type File {
+  id: ID!
+  name: String!
+  store: BigFileStore!
+
+  """The documents that reference this file"""
+  documents(filters: DocumentFilter, pagination: OffsetPaginationInput): [Document!]!
+}
+
+type FileEvent {
+  create: File
+  delete: ID
+  update: File
+  moved: File
+}
+
+input FileFilter {
+  ids: [ID!]
+  search: String
+  id: ID
+  name: StrFilterLookup
+  AND: FileFilter
+  OR: FileFilter
+  NOT: FileFilter
+  DISTINCT: Boolean
+}
+
+"""
+The `FileLike` scalar type represents a reference to a big file storage previously created by the user n a datalayer
+"""
+scalar FileLike
+
+input FromFileLike {
+  file: FileLike!
+  dataset: ID = null
+  origins: [ID!] = null
+}
+
+type Mutation {
+  """Request credentials to upload a new file"""
+  requestFileUpload(input: RequestFileUploadInput!): Credentials!
+
+  """Request presigned credentials for file upload"""
+  requestFileUploadPresigned(input: RequestFileUploadInput!): PresignedPostCredentials!
+
+  """Request credentials to access a file"""
+  requestFileAccess(input: RequestFileAccessInput!): AccessCredentials!
+
+  """Create a file from file-like data"""
+  fromFileLike(input: FromFileLike!): File!
+
+  """Delete an existing file"""
+  deleteFile(input: DeleteFileInput!): ID!
+
+  """Create a new document"""
+  createDocument(input: CreateDocumentInput!): Document!
+
+  """Create a new page in a document"""
+  createPage(input: CreatePageInput!): Page!
+}
+
+type OCRPageResult {
+  lines: [OCRTextLine!]!
+  angle: Float!
+}
+
+input OCRPageResultInput {
+  """Estimated rotation angle of the page"""
+  angle: Float!
+  lines: [OCRTextLineInput!]!
+}
+
+type OCRTextLine {
+  text: String!
+  score: Float!
+  angle: Float!
+  bbox: [[Int!]!]!
+}
+
+input OCRTextLineInput {
+  text: String!
+  score: Float!
+  angle: Float!
+  bbox: [[Int!]!]!
+}
+
+input OffsetPaginationInput {
+  offset: Int! = 0
+  limit: Int
+}
+
+type Page {
+  id: ID!
+  document: Document!
+  index: Int!
+  image: BigFileStore!
+
+  """The content of the page as a flat string."""
+  content: String!
+  ocrResult: OCRPageResult!
+}
+
+input PageFilter {
+  ids: [ID!]
+  id: ID
+  name: StrFilterLookup
+  search: String
+  AND: PageFilter
+  OR: PageFilter
+  NOT: PageFilter
+  DISTINCT: Boolean
+}
+
+"""
+Temporary Credentials for a file upload that can be used by a Client (e.g. in a python datalayer)
+"""
+type PresignedPostCredentials {
+  key: String!
+  xAmzAlgorithm: String!
+  xAmzCredential: String!
+  xAmzDate: String!
+  xAmzSignature: String!
+  policy: String!
+  datalayer: String!
+  bucket: String!
+  store: String!
+}
+
+type Query {
+  files(filters: FileFilter, pagination: OffsetPaginationInput): [File!]!
+  documents(filters: DocumentFilter, pagination: OffsetPaginationInput): [Document!]!
+  pages(filters: PageFilter, pagination: OffsetPaginationInput): [Page!]!
+  file(
+    """The unique identifier of an object"""
+    id: ID!
+  ): File!
+  document(
+    """The unique identifier of an object"""
+    id: ID!
+  ): Document!
+  page(
+    """The unique identifier of an object"""
+    id: ID!
+  ): Page!
+}
+
+input RequestFileAccessInput {
+  store: ID!
+  duration: Int
+}
+
+input RequestFileUploadInput {
+  fileName: String!
+  datalayer: String!
+}
+
+input StrFilterLookup {
+  exact: String
+  iExact: String
+  contains: String
+  iContains: String
+  inList: [String!]
+  gt: String
+  gte: String
+  lt: String
+  lte: String
+  startsWith: String
+  iStartsWith: String
+  endsWith: String
+  iEndsWith: String
+  range: [String!]
+  isNull: Boolean
+  regex: String
+  iRegex: String
+}
+
+type Subscription {
+  """Subscribe to real-time file updates"""
+  files(dataset: ID = null): FileEvent!
+}

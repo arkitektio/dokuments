@@ -1,0 +1,61 @@
+services:
+  redis:
+    image: redis:latest
+  db:
+    image: jhnnsrs/daten:latest
+    restart: always
+    environment:
+      POSTGRES_MULTIPLE_DATABASES: dokuments
+      POSTGRES_PASSWORD: hello_django
+      POSTGRES_USER: hello_django
+  # Brings the database to the image's release, once, before the server is started: a
+  # service's own start only serves.
+  dokuments-migrate:
+    depends_on:
+    - db
+    image: jhnnsrs/dokuments:${DOKUMENTS_SERVICE_TAG:-latest}
+    command: arkitekt-service run migrate
+    volumes:
+    - ./configs/dokuments.yaml:/workspace/config.yaml
+  dokuments:
+    depends_on:
+      redis:
+        condition: service_started
+      db:
+        condition: service_started
+      rustfs:
+        condition: service_started
+      # The buckets the server stores into exist once initc has run.
+      initc:
+        condition: service_completed_successfully
+      dokuments-migrate:
+        condition: service_completed_successfully
+    image: jhnnsrs/dokuments:${DOKUMENTS_SERVICE_TAG:-latest}
+    command: arkitekt-service debug
+    stop_grace_period: 1s
+    # The host ports come from the test session (`integration_ports` in conftest.py),
+    # so runs do not collide; the defaults are for a stack started by hand.
+    ports:
+    - "${DOKUMENTS_HOST_PORT:-6888}:80"
+    volumes:
+    - ./configs/dokuments.yaml:/workspace/config.yaml
+  rustfs:
+    environment:
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_SECRET_KEY: minio_root_password
+      RUSTFS_ACCESS_KEY: minio_root_user
+    image: rustfs/rustfs:latest
+    ports:
+    - "${RUSTFS_HOST_PORT:-6889}:9000"
+  initc:
+    depends_on:
+      rustfs:
+        condition: service_started
+    environment:
+      RUSTFS_HOST: http://rustfs:9000
+      RUSTFS_SECRET_KEY: minio_root_password
+      RUSTFS_ACCESS_KEY: minio_root_user
+    image: jhnnsrs/init:latest
+    volumes:
+    - ./configs/rustfs.yaml:/workspace/config.yaml

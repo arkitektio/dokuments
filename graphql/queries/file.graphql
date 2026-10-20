@@ -1,0 +1,12 @@
+query GetFile($id: ID!) {
+  file(id: $id) {
+    ...File
+  }
+}
+
+query SearchFiles($search: String, $values: [ID!]) {
+  options: files(filters: { search: $search, ids: $values }) {
+    value: id
+    label: name
+  }
+}

@@ -1,0 +1,5 @@
+fragment Page on Page {
+    id
+    index
+    content
+}

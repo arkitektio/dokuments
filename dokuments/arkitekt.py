@@ -1,73 +1,97 @@
-import json
+"""The dokuments service of an arkitekt app, and the types it sends by id.
+
+Declared on one registry: the service first, then the structures whose expanders
+ask for the ``Dokuments`` it returns. An app takes all of it in with
+``App(services=[dokuments_service])``.
+"""
+
 import os
-from dokuments.dokuments import Dokuments
-from dokuments.rath import DokumentsRath, DokumentsLinkComposition
-from fakts_next.contrib.rath.auth import FaktsAuthLink
-from rath.links.split import SplitLink
-from fakts_next.contrib.rath.aiohttp import FaktsAIOHttpLink
-from fakts_next.contrib.rath.graphql_ws import FaktsGraphQLWSLink
+from typing import Annotated
+
+from fakts import Alias, Require, TokenLoader
+from fakts.contrib.rath.auth import FaktsAuthLink
 from graphql import OperationType
-from fakts_next import Fakts
+from rath.links.aiohttp import AIOHttpLink
+from rath.links.compose import compose
+from rath.links.dictinglink import DictingLink
+from rath.links.file import FileExtraction
+from rath.links.graphql_ws import GraphQLWSLink
+from rath.links.split import SplitLink
 
+from arkitekt_spec.declare.app import AppRegistry
+from arkitekt_spec.declare.widgets import SearchWidget
 
-from arkitekt_next.service_registry import (
-    BaseArkitektService,
-    Params,
-    get_default_service_registry,
-)
-from fakts_next.models import Requirement
+from dokuments.api.schema import File, SearchFilesQuery
+from dokuments.datalayer import DataLayer
+from dokuments.dokuments import Dokuments
+from dokuments.links.upload import UploadLink
+from dokuments.rath import DokumentsRath
 
 
 def build_relative_path(*path: str) -> str:
+    """Build a path relative to this file, for the files shipped beside it."""
     return os.path.join(os.path.dirname(__file__), *path)
 
 
-class DokumentsService(BaseArkitektService):
-    """Dokuments Service"""
-
-    def get_service_name(self):
-        return "dokuments"
-
-    def build_service(self, fakts: Fakts, params: Params):
-        return Dokuments(
-            rath=DokumentsRath(
-                link=DokumentsLinkComposition(
-                    auth=FaktsAuthLink(fakts=fakts),
-                    split=SplitLink(
-                        left=FaktsAIOHttpLink(
-                            fakts_group="dokuments",
-                            fakts=fakts,
-                            endpoint_url="FAKE_URL",
-                        ),
-                        right=FaktsGraphQLWSLink(
-                            fakts_group="dokuments",
-                            fakts=fakts,
-                            ws_endpoint_url="FAKE_URL",
-                        ),
-                        split=lambda o: o.node.operation != OperationType.SUBSCRIPTION,
-                    ),
-                )
-            )
-        )
-
-    def get_requirements(self):
-        return [
-            Requirement(
-                key="dokuments",
-                service="live.arkitekt.dokuments",
-                description="An instance of ArkitektNext dokuments to retrieve graphs from",
-            )
-        ]
-
-    def get_graphql_schema(self):
-        schema_graphql_path = build_relative_path("api", "schema.graphql")
-        with open(schema_graphql_path) as f:
-            return f.read()
-
-    def get_turms_project(self):
-        turms_prject = build_relative_path("api", "project.json")
-        with open(turms_prject) as f:
-            return json.loads(f.read())
+registry = AppRegistry()
+"""What dokuments brings to an app: its service, and the types it sends by id."""
 
 
-get_default_service_registry().register(DokumentsService())
+@registry.service(
+    schema=build_relative_path("api", "schema.graphql"),
+    turms=build_relative_path("api", "project.json"),
+)
+def dokuments(
+    dokuments: Annotated[
+        Alias,
+        Require("live.arkitekt.dokuments", "Where the user's documents live"),
+    ],
+    datalayer: Annotated[
+        Alias,
+        Require("live.arkitekt.s3", "Where the documents' files are stored"),
+    ],
+    tokens: TokenLoader,
+) -> Dokuments:
+    """Dokuments: the user's documents and the files behind them.
+
+    The ``datalayer`` requirement is new only in the sense that it was always
+    used and never declared: the builder resolved a ``"datalayer"`` group no
+    manifest asked a deployment to provision, so the alias never resolved.
+    Declaring the parameter is what fixes it.
+    """
+    store = DataLayer.from_alias(datalayer)
+
+    return Dokuments(
+        datalayer=store,
+        rath=DokumentsRath(
+            link=compose(
+                FileExtraction(),
+                DictingLink(),
+                # TODO: a ContextLink() used to sit here, imported from
+                # `rekuest.links.context`. That module and class exist nowhere in
+                # rekuest any more -- this was the only reference left in the tree,
+                # and it made this whole module unimportable. Dropped so the service
+                # loads at all; whatever context it propagated to the server now
+                # does not, and needs a replacement if anything relied on it.
+                # After the upload link: the upload uses the auth link too.
+                UploadLink(datalayer=store),
+                FaktsAuthLink(token_loader=tokens),
+                SplitLink(
+                    left=AIOHttpLink(endpoint_url=dokuments.to_http_path("graphql"), proxy=dokuments.proxy),
+                    right=GraphQLWSLink(ws_endpoint_url=dokuments.to_ws_path("graphql"), proxy=dokuments.proxy),
+                    split=lambda o: o.node.operation != OperationType.SUBSCRIPTION,
+                ),
+            ),
+        ),
+    )
+
+
+def _search(query: object) -> SearchWidget:
+    """The widget that picks one of these out of the deployment."""
+    return SearchWidget(query=query.Meta.document, ward="dokuments")  # type: ignore[attr-defined]
+
+
+@registry.structure("@dokuments/file", widget=_search(SearchFilesQuery))
+async def expand_file(id: str, dokuments: Dokuments) -> File:
+    """A file, by id."""
+    return await dokuments.aget_file(id)

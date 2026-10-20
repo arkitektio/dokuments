@@ -149,3 +149,5 @@ data
 *.token.temp
 *.fakts.yaml
 fakts.yaml
+# macOS
+.DS_Store

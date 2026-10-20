@@ -1,14 +1,6 @@
 from .dokuments import Dokuments
 
-try:
-    from .arkitekt import DokumentsService
-    from .rekuest import structure_reg
-except ImportError:
-    pass
+# The service is declared with arkitekt-spec, a core dependency: it is always there.
+from .arkitekt import dokuments as dokuments_service
 
-
-__all__ = [
-    "Dokuments",
-    "DokumentsService",
-    "structure_reg",
-]
+__all__ = ["Dokuments", "dokuments_service"]

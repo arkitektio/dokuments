@@ -1,0 +1,7 @@
+fragment Document on Document {
+    id
+    title
+    pages {
+        ...Page
+    }
+}

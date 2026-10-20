@@ -1,0 +1,6 @@
+fragment File on File {
+    id
+    store {
+        ...BigFileStore
+    }
+}

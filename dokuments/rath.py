@@ -1,19 +1,12 @@
-from types import TracebackType
-from typing import Optional, Type
+"""The rath dokuments talks to its server through."""
+
 from pydantic import Field
 from rath import rath
-import contextvars
-
 from rath.links.auth import AuthTokenLink
-
 from rath.links.compose import TypedComposedLink
 from rath.links.dictinglink import DictingLink
 from rath.links.shrink import ShrinkingLink
 from rath.links.split import SplitLink
-
-current_dokuments_rath: contextvars.ContextVar[Optional["DokumentsRath"]] = (
-    contextvars.ContextVar("current_dokuments_rath", default=None)
-)
 
 
 class DokumentsLinkComposition(TypedComposedLink):
@@ -24,22 +17,8 @@ class DokumentsLinkComposition(TypedComposedLink):
 
 
 class DokumentsRath(rath.Rath):
-    """Fluss Rath
+    """The rath of a :class:`~dokuments.dokuments.Dokuments` client.
 
-    Args:
-        rath (_type_): _description_
+    Nothing is looked up from a context: the client that owns it runs every
+    operation over it.
     """
-
-    async def __aenter__(self):
-        await super().__aenter__()
-        current_dokuments_rath.set(self)
-        return self
-
-    async def __aexit__(
-        self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        traceback: Optional[TracebackType],
-    ) -> None:
-        await super().__aexit__(exc_type, exc_val, traceback)
-        current_dokuments_rath.set(None)
