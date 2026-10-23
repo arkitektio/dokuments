@@ -77,8 +77,8 @@ def dokuments(
                 UploadLink(datalayer=store),
                 FaktsAuthLink(token_loader=tokens),
                 SplitLink(
-                    left=AIOHttpLink(endpoint_url=dokuments.to_http_path("graphql"), proxy=dokuments.proxy),
-                    right=GraphQLWSLink(ws_endpoint_url=dokuments.to_ws_path("graphql"), proxy=dokuments.proxy),
+                    left=AIOHttpLink(endpoint_url=dokuments.to_http_path("graphql"), proxy=dokuments.proxy, ssl_context=dokuments.ssl_context()),
+                    right=GraphQLWSLink(ws_endpoint_url=dokuments.to_ws_path("graphql"), proxy=dokuments.proxy, ssl_context=dokuments.ssl_context()),
                     split=lambda o: o.node.operation != OperationType.SUBSCRIPTION,
                 ),
             ),

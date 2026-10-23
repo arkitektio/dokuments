@@ -16,7 +16,10 @@ async def adownload_file(
     async with aiohttp.ClientSession() as session:
         # ``proxy=None`` is aiohttp's own default, so an unproxied datalayer is unchanged.
         async with session.get(
-            endpoint_url + presigned_url, proxy=datalayer.proxy
+            endpoint_url + presigned_url,
+            proxy=datalayer.proxy,
+            # A pinned store by its hub's certificate alone; any other as before.
+            ssl=datalayer.ssl_context() if datalayer.certificates else True,
         ) as response:
             with open(file_name, "wb") as file:
                 while True:

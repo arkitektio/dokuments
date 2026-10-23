@@ -32,6 +32,7 @@ Example:
 """
 
 import contextvars
+import ssl
 from types import TracebackType
 from typing import Optional
 
@@ -64,6 +65,18 @@ class DataLayer(KoiledModel):
     """The HTTP forward proxy (``http://host:port``) the store is only reachable
     through, when it sits on a private mesh. ``None`` connects directly."""
 
+    certificates: list[str] = []
+    """The certificate(s) the store's hub registered, when its alias is pinned:
+    TLS to it is verified by those alone (``arkitekt_spec.declare.tls``). Empty
+    for any other store."""
+
+    def ssl_context(self) -> ssl.SSLContext:
+        """The context to reach the store with: its hub's certificate alone when
+        pinned, the public roots otherwise."""
+        from arkitekt_spec.declare import tls
+
+        return tls.pinned_context(self.certificates) if self.certificates else tls.default_context()
+
 
     @classmethod
     def from_alias(cls, alias: "Alias") -> "DataLayer":
@@ -75,7 +88,11 @@ class DataLayer(KoiledModel):
         Returns:
             The datalayer, ready to use.
         """
-        return cls(endpoint_url=alias.to_http_path(), proxy=alias.proxy)
+        return cls(
+            endpoint_url=alias.to_http_path(),
+            proxy=alias.proxy,
+            certificates=list(alias.certificates) if alias.is_pinned() else [],
+        )
 
     async def get_endpoint_url(self):
         return self.endpoint_url

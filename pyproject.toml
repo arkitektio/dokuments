@@ -13,8 +13,8 @@ dependencies = [
     "rath>=4.1.1",
     "websockets>=15.0.1",
     # The service and structures are declared with arkitekt-spec, its aliases resolved by fakts.
-    "arkitekt-spec>=3.14.0",
-    "fakts>=6.0.1",
+    "arkitekt-spec>=3.19.1",
+    "fakts>=6.1",
 ]
 
 
