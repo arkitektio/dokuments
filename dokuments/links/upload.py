@@ -1,4 +1,5 @@
 import asyncio
+import os
 
 
 from dokuments.scalars import FileLike
@@ -52,6 +53,14 @@ async def apply_recursive(
         return obj  # type: ignore
 
 
+def _size_of(file: FileLike) -> int | None:
+    """The file's size, when it can be learned without reading it: what the grant is budgeted for."""
+    try:
+        return os.fstat(file.value.fileno()).st_size
+    except (AttributeError, OSError, ValueError):
+        return None
+
+
 class UploadLink(ParsingLink):
     """Data Layer Upload Link
 
@@ -78,38 +87,35 @@ class UploadLink(ParsingLink):
         self._executor_session = self.executor.__enter__()
         return self
 
-    async def aget_bigfile_credentials(self, file: FileLike, datalayer: str) -> Any:
-        from dokuments.api.schema import (
-            RequestFileUploadMutation,
-            RequestFileUploadInput,
-        )
-
+    async def _aexecute(self, document: str, variables: dict[str, Any]) -> Any:
         if not self.next:
             raise ValueError("No next link found. Please set the next link.")
-
-        operation = opify(
-            RequestFileUploadMutation.Meta.document,
-            variables={
-                "input": RequestFileUploadInput(
-                    fileName=file.file_name, datalayer=datalayer
-                ).model_dump(by_alias=True, exclude_unset=True)
-            },
-        )
-
-        async for result in self.next.aexecute(operation):
-            return RequestFileUploadMutation(**result.data).request_file_upload
+        async for result in self.next.aexecute(opify(document, variables=variables)):
+            return result.data
+        raise ValueError(f"No result for {document[:40]}")
 
     async def aupload_bigfile(self, datalayer: "DataLayer", file: FileLike) -> str:
-        """Upload a big file to the DataLayer asynchronously."""
-        assert datalayer is not None, "Datalayer must be set"
-        endpoint_url = await datalayer.get_endpoint_url()
-
-        credentials = await self.aget_bigfile_credentials(file, endpoint_url)
-        return await aupload_bigfile(
-            file,
-            credentials,
-            datalayer,
+        """Upload a file as a media store of the caller's organization: a grant, a put, a finish."""
+        from dokuments.api.schema import (
+            FinishMediaUploadInput,
+            FinishMediaUploadMutation,
+            RequestMediaUploadInput,
+            RequestMediaUploadMutation,
         )
+
+        assert datalayer is not None, "Datalayer must be set"
+        size = _size_of(file)
+        granted = await self._aexecute(
+            RequestMediaUploadMutation.Meta.document,
+            {"input": RequestMediaUploadInput(originalFileName=file.file_name, fileSize=size, contentType=file.mime_type).model_dump(by_alias=True, exclude_none=True)},
+        )
+        credentials = RequestMediaUploadMutation(**granted).request_media_upload
+        store = await aupload_bigfile(file, credentials, datalayer)
+        await self._aexecute(
+            FinishMediaUploadMutation.Meta.document,
+            {"input": FinishMediaUploadInput(storeId=store, valid=True).model_dump(by_alias=True, exclude_none=True)},
+        )
+        return store
 
     async def aparse(self, operation: Operation) -> Operation:
         """Parse the operation (Async)

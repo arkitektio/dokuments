@@ -45,6 +45,7 @@ projects:
           Any: typing.Any
           FileLike: dokuments.scalars.FileLike
           ID: rath.scalars.ID
+          ByteCount: int
         additional_bases:
-          BigFileStore:
+          MediaStore:
             - dokuments.traits.HasDownloadAccessor

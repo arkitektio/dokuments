@@ -4,7 +4,17 @@ from dokuments.traits import HasDownloadAccessor
 from enum import Enum
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from rath.scalars import ID, IDCoercible
-from typing import AsyncIterator, Iterable, Iterator, Literal
+from typing import Annotated, AsyncIterator, Iterable, Iterator, Literal
+
+
+class GraphQLDefault:
+    """Records a GraphQL field schema default value. The client omits the field so the server applies its own default; this preserves the value for introspection."""
+
+    def __init__(self, value):
+        self.value = value
+
+    def __repr__(self):
+        return "GraphQLDefault(" + repr(self.value) + ")"
 
 
 class UnsetType:
@@ -53,6 +63,20 @@ class CreatePageInput(BaseModel):
     )
 
 
+class FinishMediaUploadInput(BaseModel):
+    """No documentation"""
+
+    store_id: str = Field(
+        validation_alias=AliasChoices("store_id", "storeId"),
+        serialization_alias="storeId",
+    )
+    valid: Annotated[bool | None, GraphQLDefault("True")] = None
+    "Default: True"
+    model_config = ConfigDict(
+        frozen=True, extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
 class FromFileLike(BaseModel):
     """No documentation"""
 
@@ -86,72 +110,89 @@ class OCRTextLineInput(BaseModel):
     )
 
 
-class RequestFileAccessInput(BaseModel):
+class RequestMediaAccessInput(BaseModel):
     """No documentation"""
 
-    store: ID
-    duration: int | None = None
+    store_id: str = Field(
+        validation_alias=AliasChoices("store_id", "storeId"),
+        serialization_alias="storeId",
+    )
     model_config = ConfigDict(
         frozen=True, extra="forbid", populate_by_name=True, use_enum_values=True
     )
 
 
-class RequestFileUploadInput(BaseModel):
+class RequestMediaUploadInput(BaseModel):
     """No documentation"""
 
-    file_name: str = Field(
-        validation_alias=AliasChoices("file_name", "fileName"),
-        serialization_alias="fileName",
+    original_file_name: str = Field(
+        validation_alias=AliasChoices("original_file_name", "originalFileName"),
+        serialization_alias="originalFileName",
     )
-    datalayer: str
+    file_size: int | None = Field(
+        validation_alias=AliasChoices("file_size", "fileSize"),
+        serialization_alias="fileSize",
+        default=None,
+    )
+    content_type: str | None = Field(
+        validation_alias=AliasChoices("content_type", "contentType"),
+        serialization_alias="contentType",
+        default=None,
+    )
     model_config = ConfigDict(
         frozen=True, extra="forbid", populate_by_name=True, use_enum_values=True
     )
 
 
-class Credentials(BaseModel):
-    """Temporary Credentials for a file upload that can be used by a Client (e.g. in a python datalayer)"""
+class MediaUploadGrant(BaseModel):
+    """Temporary S3 credentials for uploading a media object."""
 
-    typename: Literal["Credentials"] = Field(
-        alias="__typename", default="Credentials", exclude=True
+    typename: Literal["MediaUploadGrant"] = Field(
+        alias="__typename", default="MediaUploadGrant", exclude=True
     )
     access_key: str = Field(alias="accessKey")
-    status: str
     secret_key: str = Field(alias="secretKey")
-    bucket: str
-    key: str
     session_token: str = Field(alias="sessionToken")
+    path: str
+    key: str
+    bucket: str
+    region: str
+    expires_in: int = Field(alias="expiresIn")
+    max_bytes: int = Field(alias="maxBytes")
     store: str
     model_config = ConfigDict(frozen=True)
 
     class Meta:
-        """Meta class for Credentials"""
+        """Meta class for MediaUploadGrant"""
 
-        document = "fragment Credentials on Credentials {\n  accessKey\n  status\n  secretKey\n  bucket\n  key\n  sessionToken\n  store\n  __typename\n}"
-        name = "Credentials"
-        type = "Credentials"
+        document = "fragment MediaUploadGrant on MediaUploadGrant {\n  accessKey\n  secretKey\n  sessionToken\n  path\n  key\n  bucket\n  region\n  expiresIn\n  maxBytes\n  store\n  __typename\n}"
+        name = "MediaUploadGrant"
+        type = "MediaUploadGrant"
 
 
-class AccessCredentials(BaseModel):
-    """Temporary Credentials for a file download that can be used by a Client (e.g. in a python datalayer)"""
+class MediaAccessGrant(BaseModel):
+    """Temporary S3 credentials for reading a media object."""
 
-    typename: Literal["AccessCredentials"] = Field(
-        alias="__typename", default="AccessCredentials", exclude=True
+    typename: Literal["MediaAccessGrant"] = Field(
+        alias="__typename", default="MediaAccessGrant", exclude=True
     )
     access_key: str = Field(alias="accessKey")
     secret_key: str = Field(alias="secretKey")
-    bucket: str
-    key: str
     session_token: str = Field(alias="sessionToken")
     path: str
+    key: str
+    bucket: str
+    region: str
+    expires_in: int = Field(alias="expiresIn")
+    store: str | None = Field(default=None)
     model_config = ConfigDict(frozen=True)
 
     class Meta:
-        """Meta class for AccessCredentials"""
+        """Meta class for MediaAccessGrant"""
 
-        document = "fragment AccessCredentials on AccessCredentials {\n  accessKey\n  secretKey\n  bucket\n  key\n  sessionToken\n  path\n  __typename\n}"
-        name = "AccessCredentials"
-        type = "AccessCredentials"
+        document = "fragment MediaAccessGrant on MediaAccessGrant {\n  accessKey\n  secretKey\n  sessionToken\n  path\n  key\n  bucket\n  region\n  expiresIn\n  store\n  __typename\n}"
+        name = "MediaAccessGrant"
+        type = "MediaAccessGrant"
 
 
 class Page(BaseModel):
@@ -172,25 +213,28 @@ class Page(BaseModel):
         type = "Page"
 
 
-class BigFileStore(HasDownloadAccessor, BaseModel):
+class MediaStore(HasDownloadAccessor, BaseModel):
     """No documentation"""
 
-    typename: Literal["BigFileStore"] = Field(
-        alias="__typename", default="BigFileStore", exclude=True
+    typename: Literal["MediaStore"] = Field(
+        alias="__typename", default="MediaStore", exclude=True
     )
     id: ID
     key: str
     bucket: str
     path: str
-    presigned_url: str = Field(alias="presignedUrl")
+    size_bytes: int | None = Field(default=None, alias="sizeBytes")
+    "How many bytes this store actually holds, measured when its upload was finished. Null while unfinished, or for stores written before this was recorded"
+    original_file_name: str | None = Field(default=None, alias="originalFileName")
+    content_type: str | None = Field(default=None, alias="contentType")
     model_config = ConfigDict(frozen=True)
 
     class Meta:
-        """Meta class for BigFileStore"""
+        """Meta class for MediaStore"""
 
-        document = "fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}"
-        name = "BigFileStore"
-        type = "BigFileStore"
+        document = "fragment MediaStore on MediaStore {\n  id\n  key\n  bucket\n  path\n  sizeBytes\n  originalFileName\n  contentType\n  __typename\n}"
+        name = "MediaStore"
+        type = "MediaStore"
 
 
 class Document(BaseModel):
@@ -217,13 +261,13 @@ class File(BaseModel):
 
     typename: Literal["File"] = Field(alias="__typename", default="File", exclude=True)
     id: ID
-    store: BigFileStore
+    store: MediaStore | None = Field(default=None)
     model_config = ConfigDict(frozen=True)
 
     class Meta:
         """Meta class for File"""
 
-        document = "fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment File on File {\n  id\n  store {\n    ...BigFileStore\n    __typename\n  }\n  __typename\n}"
+        document = "fragment MediaStore on MediaStore {\n  id\n  key\n  bucket\n  path\n  sizeBytes\n  originalFileName\n  contentType\n  __typename\n}\n\nfragment File on File {\n  id\n  store {\n    ...MediaStore\n    __typename\n  }\n  __typename\n}"
         name = "File"
         type = "File"
 
@@ -259,41 +303,58 @@ class From_file_likeMutation(BaseModel):
     class Meta:
         """Meta class for from_file_like"""
 
-        document = "fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment File on File {\n  id\n  store {\n    ...BigFileStore\n    __typename\n  }\n  __typename\n}\n\nmutation from_file_like($input: FromFileLike!) {\n  fromFileLike(input: $input) {\n    ...File\n    __typename\n  }\n}"
+        document = "fragment MediaStore on MediaStore {\n  id\n  key\n  bucket\n  path\n  sizeBytes\n  originalFileName\n  contentType\n  __typename\n}\n\nfragment File on File {\n  id\n  store {\n    ...MediaStore\n    __typename\n  }\n  __typename\n}\n\nmutation from_file_like($input: FromFileLike!) {\n  fromFileLike(input: $input) {\n    ...File\n    __typename\n  }\n}"
 
 
-class RequestFileUploadMutation(BaseModel):
+class RequestMediaUploadMutation(BaseModel):
     """No documentation found for this operation."""
 
-    request_file_upload: Credentials = Field(alias="requestFileUpload")
-    "Request credentials to upload a new file"
+    request_media_upload: MediaUploadGrant = Field(alias="requestMediaUpload")
+    "Request temporary S3 credentials to upload one file (a document, or a page's image)."
 
     class Arguments(BaseModel):
-        """Arguments for RequestFileUpload"""
+        """Arguments for RequestMediaUpload"""
 
-        input: RequestFileUploadInput
+        input: RequestMediaUploadInput
 
     class Meta:
-        """Meta class for RequestFileUpload"""
+        """Meta class for RequestMediaUpload"""
 
-        document = "fragment Credentials on Credentials {\n  accessKey\n  status\n  secretKey\n  bucket\n  key\n  sessionToken\n  store\n  __typename\n}\n\nmutation RequestFileUpload($input: RequestFileUploadInput!) {\n  requestFileUpload(input: $input) {\n    ...Credentials\n    __typename\n  }\n}"
+        document = "fragment MediaUploadGrant on MediaUploadGrant {\n  accessKey\n  secretKey\n  sessionToken\n  path\n  key\n  bucket\n  region\n  expiresIn\n  maxBytes\n  store\n  __typename\n}\n\nmutation RequestMediaUpload($input: RequestMediaUploadInput!) {\n  requestMediaUpload(input: $input) {\n    ...MediaUploadGrant\n    __typename\n  }\n}"
 
 
-class RequestFileAccessMutation(BaseModel):
+class FinishMediaUploadMutation(BaseModel):
     """No documentation found for this operation."""
 
-    request_file_access: AccessCredentials = Field(alias="requestFileAccess")
-    "Request credentials to access a file"
+    finish_media_upload: MediaStore = Field(alias="finishMediaUpload")
+    "Finalize an upload after the client has written the object."
 
     class Arguments(BaseModel):
-        """Arguments for RequestFileAccess"""
+        """Arguments for FinishMediaUpload"""
 
-        input: RequestFileAccessInput
+        input: FinishMediaUploadInput
 
     class Meta:
-        """Meta class for RequestFileAccess"""
+        """Meta class for FinishMediaUpload"""
 
-        document = "fragment AccessCredentials on AccessCredentials {\n  accessKey\n  secretKey\n  bucket\n  key\n  sessionToken\n  path\n  __typename\n}\n\nmutation RequestFileAccess($input: RequestFileAccessInput!) {\n  requestFileAccess(input: $input) {\n    ...AccessCredentials\n    __typename\n  }\n}"
+        document = "fragment MediaStore on MediaStore {\n  id\n  key\n  bucket\n  path\n  sizeBytes\n  originalFileName\n  contentType\n  __typename\n}\n\nmutation FinishMediaUpload($input: FinishMediaUploadInput!) {\n  finishMediaUpload(input: $input) {\n    ...MediaStore\n    __typename\n  }\n}"
+
+
+class RequestMediaAccessMutation(BaseModel):
+    """No documentation found for this operation."""
+
+    request_media_access: MediaAccessGrant = Field(alias="requestMediaAccess")
+    "Request temporary S3 read credentials for an uploaded file."
+
+    class Arguments(BaseModel):
+        """Arguments for RequestMediaAccess"""
+
+        input: RequestMediaAccessInput
+
+    class Meta:
+        """Meta class for RequestMediaAccess"""
+
+        document = "fragment MediaAccessGrant on MediaAccessGrant {\n  accessKey\n  secretKey\n  sessionToken\n  path\n  key\n  bucket\n  region\n  expiresIn\n  store\n  __typename\n}\n\nmutation RequestMediaAccess($input: RequestMediaAccessInput!) {\n  requestMediaAccess(input: $input) {\n    ...MediaAccessGrant\n    __typename\n  }\n}"
 
 
 class CreatePageMutation(BaseModel):
@@ -326,7 +387,7 @@ class GetFileQuery(BaseModel):
     class Meta:
         """Meta class for GetFile"""
 
-        document = "fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment File on File {\n  id\n  store {\n    ...BigFileStore\n    __typename\n  }\n  __typename\n}\n\nquery GetFile($id: ID!) {\n  file(id: $id) {\n    ...File\n    __typename\n  }\n}"
+        document = "fragment MediaStore on MediaStore {\n  id\n  key\n  bucket\n  path\n  sizeBytes\n  originalFileName\n  contentType\n  __typename\n}\n\nfragment File on File {\n  id\n  store {\n    ...MediaStore\n    __typename\n  }\n  __typename\n}\n\nquery GetFile($id: ID!) {\n  file(id: $id) {\n    ...File\n    __typename\n  }\n}"
 
 
 class SearchFilesQueryOptions(BaseModel):
@@ -352,7 +413,7 @@ class SearchFilesQuery(BaseModel):
     class Meta:
         """Meta class for SearchFiles"""
 
-        document = "query SearchFiles($search: String, $values: [ID!]) {\n  options: files(filters: {search: $search, ids: $values}) {\n    value: id\n    label: name\n    __typename\n  }\n}"
+        document = "query SearchFiles($search: String, $values: [ID!]) {\n  options: files(filters: { search: $search, ids: $values }) {\n    value: id\n    label: name\n    __typename\n  }\n}"
 
 
 class WatchFilesSubscriptionFiles(BaseModel):
@@ -381,7 +442,7 @@ class WatchFilesSubscription(BaseModel):
     class Meta:
         """Meta class for WatchFiles"""
 
-        document = "fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment File on File {\n  id\n  store {\n    ...BigFileStore\n    __typename\n  }\n  __typename\n}\n\nsubscription WatchFiles($dataset: ID) {\n  files(dataset: $dataset) {\n    create {\n      ...File\n      __typename\n    }\n    delete\n    update {\n      ...File\n      __typename\n    }\n    __typename\n  }\n}"
+        document = "fragment MediaStore on MediaStore {\n  id\n  key\n  bucket\n  path\n  sizeBytes\n  originalFileName\n  contentType\n  __typename\n}\n\nfragment File on File {\n  id\n  store {\n    ...MediaStore\n    __typename\n  }\n  __typename\n}\n\nsubscription WatchFiles($dataset: ID) {\n  files(dataset: $dataset) {\n    create {\n      ...File\n      __typename\n    }\n    delete\n    update {\n      ...File\n      __typename\n    }\n    __typename\n  }\n}"
 
 
 class DokumentsApi:
@@ -490,91 +551,139 @@ class DokumentsApi:
         variables["input"] = _input
         return self.execute(From_file_likeMutation, variables).from_file_like
 
-    async def arequest_file_upload(self, file_name: str, datalayer: str) -> Credentials:
-        """RequestFileUpload
+    async def arequest_media_upload(
+        self,
+        original_file_name: str,
+        file_size: int | None | UnsetType = UNSET,
+        content_type: str | None | UnsetType = UNSET,
+    ) -> MediaUploadGrant:
+        """RequestMediaUpload
 
-        Request credentials to upload a new file
+        Request temporary S3 credentials to upload one file (a document, or a page's image).
 
         Args:
-            file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-            datalayer: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+            original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+            file_size: A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string.
+            content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
 
         Returns:
-            Credentials
+            MediaUploadGrant
         """
         variables: dict[str, builtins.object] = {}
         _input: dict[str, builtins.object] = {}
-        _input["fileName"] = file_name
-        _input["datalayer"] = datalayer
+        _input["originalFileName"] = original_file_name
+        if file_size is not UNSET:
+            _input["fileSize"] = file_size
+        if content_type is not UNSET:
+            _input["contentType"] = content_type
         variables["input"] = _input
         return (
-            await self.aexecute(RequestFileUploadMutation, variables)
-        ).request_file_upload
+            await self.aexecute(RequestMediaUploadMutation, variables)
+        ).request_media_upload
 
-    def request_file_upload(self, file_name: str, datalayer: str) -> Credentials:
-        """RequestFileUpload
+    def request_media_upload(
+        self,
+        original_file_name: str,
+        file_size: int | None | UnsetType = UNSET,
+        content_type: str | None | UnsetType = UNSET,
+    ) -> MediaUploadGrant:
+        """RequestMediaUpload
 
-        Request credentials to upload a new file
+        Request temporary S3 credentials to upload one file (a document, or a page's image).
 
         Args:
-            file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-            datalayer: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+            original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+            file_size: A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string.
+            content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
 
         Returns:
-            Credentials
+            MediaUploadGrant
         """
         variables: dict[str, builtins.object] = {}
         _input: dict[str, builtins.object] = {}
-        _input["fileName"] = file_name
-        _input["datalayer"] = datalayer
+        _input["originalFileName"] = original_file_name
+        if file_size is not UNSET:
+            _input["fileSize"] = file_size
+        if content_type is not UNSET:
+            _input["contentType"] = content_type
         variables["input"] = _input
-        return self.execute(RequestFileUploadMutation, variables).request_file_upload
+        return self.execute(RequestMediaUploadMutation, variables).request_media_upload
 
-    async def arequest_file_access(
-        self, store: IDCoercible, duration: int | None | UnsetType = UNSET
-    ) -> AccessCredentials:
-        """RequestFileAccess
+    async def afinish_media_upload(self, store_id: str, valid: bool) -> MediaStore:
+        """FinishMediaUpload
 
-        Request credentials to access a file
+        Finalize an upload after the client has written the object.
 
         Args:
-            store: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
-            duration: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+            store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+            valid: The `Boolean` scalar type represents `true` or `false`. (required)
 
         Returns:
-            AccessCredentials
+            MediaStore
         """
         variables: dict[str, builtins.object] = {}
         _input: dict[str, builtins.object] = {}
-        _input["store"] = store
-        if duration is not UNSET:
-            _input["duration"] = duration
+        _input["storeId"] = store_id
+        _input["valid"] = valid
         variables["input"] = _input
         return (
-            await self.aexecute(RequestFileAccessMutation, variables)
-        ).request_file_access
+            await self.aexecute(FinishMediaUploadMutation, variables)
+        ).finish_media_upload
 
-    def request_file_access(
-        self, store: IDCoercible, duration: int | None | UnsetType = UNSET
-    ) -> AccessCredentials:
-        """RequestFileAccess
+    def finish_media_upload(self, store_id: str, valid: bool) -> MediaStore:
+        """FinishMediaUpload
 
-        Request credentials to access a file
+        Finalize an upload after the client has written the object.
 
         Args:
-            store: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
-            duration: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+            store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+            valid: The `Boolean` scalar type represents `true` or `false`. (required)
 
         Returns:
-            AccessCredentials
+            MediaStore
         """
         variables: dict[str, builtins.object] = {}
         _input: dict[str, builtins.object] = {}
-        _input["store"] = store
-        if duration is not UNSET:
-            _input["duration"] = duration
+        _input["storeId"] = store_id
+        _input["valid"] = valid
         variables["input"] = _input
-        return self.execute(RequestFileAccessMutation, variables).request_file_access
+        return self.execute(FinishMediaUploadMutation, variables).finish_media_upload
+
+    async def arequest_media_access(self, store_id: str) -> MediaAccessGrant:
+        """RequestMediaAccess
+
+        Request temporary S3 read credentials for an uploaded file.
+
+        Args:
+            store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+
+        Returns:
+            MediaAccessGrant
+        """
+        variables: dict[str, builtins.object] = {}
+        _input: dict[str, builtins.object] = {}
+        _input["storeId"] = store_id
+        variables["input"] = _input
+        return (
+            await self.aexecute(RequestMediaAccessMutation, variables)
+        ).request_media_access
+
+    def request_media_access(self, store_id: str) -> MediaAccessGrant:
+        """RequestMediaAccess
+
+        Request temporary S3 read credentials for an uploaded file.
+
+        Args:
+            store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+
+        Returns:
+            MediaAccessGrant
+        """
+        variables: dict[str, builtins.object] = {}
+        _input: dict[str, builtins.object] = {}
+        _input["storeId"] = store_id
+        variables["input"] = _input
+        return self.execute(RequestMediaAccessMutation, variables).request_media_access
 
     async def acreate_page(
         self,

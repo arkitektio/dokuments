@@ -1,41 +1,31 @@
-from dokuments.datalayer import current_dokuments_datalayer, DataLayer
-import aiohttp
+"""Download a stored file with a scoped read grant (``requestMediaAccess``); there are no presigned URLs."""
+
+import os
+from typing import TYPE_CHECKING
+
+import obstore
 from koil import unkoil
+from mikro.io.obstore import create_s3_store
+from rath.scalars import ID
+
+if TYPE_CHECKING:
+    from dokuments.dokuments import Dokuments
 
 
-async def adownload_file(
-    presigned_url: str,
-    file_name: str,
-    datalayer: DataLayer | None = None,
-):
-    datalayer = datalayer or current_dokuments_datalayer.get()
-    if not datalayer:
-        raise ValueError("Datalayer is not set")
-    endpoint_url = await datalayer.get_endpoint_url()
+async def adownload_file(dokuments: "Dokuments", store_id: str, file_name: str) -> str:
+    """Write the media store ``store_id`` to ``file_name`` and return the path."""
+    grant = await dokuments.arequest_media_access(store_id=ID.validate(store_id))
+    store = create_s3_store(await dokuments.datalayer.get_endpoint_url(), grant, proxy=dokuments.datalayer.proxy)
 
-    async with aiohttp.ClientSession() as session:
-        # ``proxy=None`` is aiohttp's own default, so an unproxied datalayer is unchanged.
-        async with session.get(
-            endpoint_url + presigned_url,
-            proxy=datalayer.proxy,
-            # A pinned store by its hub's certificate alone; any other as before.
-            ssl=datalayer.ssl_context() if datalayer.certificates else True,
-        ) as response:
-            with open(file_name, "wb") as file:
-                while True:
-                    chunk = await response.content.read(
-                        1024
-                    )  # read the response by chunks of 1024 bytes
-                    if not chunk:
-                        break
-                    file.write(chunk)
-
+    parent = os.path.dirname(file_name)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    response = await obstore.get_async(store, grant.key)
+    with open(file_name, "wb") as file:
+        async for chunk in response.stream():
+            file.write(chunk)
     return file_name
 
 
-def download_file(
-    presigned_url: str, file_name: str, datalayer: DataLayer | None = None
-):
-    return unkoil(
-        adownload_file, presigned_url, file_name=file_name, datalayer=datalayer
-    )
+def download_file(dokuments: "Dokuments", store_id: str, file_name: str) -> str:
+    return unkoil(adownload_file, dokuments, store_id, file_name)

@@ -4,14 +4,20 @@ mutation from_file_like($input: FromFileLike!) {
   }
 }
 
-mutation RequestFileUpload($input: RequestFileUploadInput!) {
-  requestFileUpload(input: $input) {
-    ...Credentials
+mutation RequestMediaUpload($input: RequestMediaUploadInput!) {
+  requestMediaUpload(input: $input) {
+    ...MediaUploadGrant
   }
 }
 
-mutation RequestFileAccess($input: RequestFileAccessInput!) {
-  requestFileAccess(input: $input) {
-    ...AccessCredentials
+mutation FinishMediaUpload($input: FinishMediaUploadInput!) {
+  finishMediaUpload(input: $input) {
+    ...MediaStore
+  }
+}
+
+mutation RequestMediaAccess($input: RequestMediaAccessInput!) {
+  requestMediaAccess(input: $input) {
+    ...MediaAccessGrant
   }
 }

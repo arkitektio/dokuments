@@ -35,9 +35,11 @@ scopes:
   dokuments_read: Read documents and their files
   dokuments_write: Write documents and their files
 datalayer:
-  # The root user of the stack's rustfs; the buckets come from configs/rustfs.yaml.
-  access_key: minio_root_user
-  secret_key: minio_root_password
+  # The scoped user configs/rustfs.yaml provisions; the server mints STS credentials per
+  # grant from it (RustFS scopes the session by the inline policy, any ARN-shaped role does).
+  role_arn: arn:aws:iam::000000000000:role/dokuments
+  access_key: minio_access_key
+  secret_key: minio_secret_key
   host: rustfs
   port: 9000
   protocol: http

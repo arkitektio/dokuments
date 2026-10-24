@@ -23,7 +23,8 @@
             "scalar_definitions": {
                 "Any": "typing.Any",
                 "FileLike": "dokuments.scalars.FileLike",
-                "ID": "rath.scalars.ID"
+                "ID": "rath.scalars.ID",
+                "ByteCount": "int"
             },
             "coercible_scalars": {},
             "coercible_inputs": {},
@@ -63,7 +64,7 @@
             "type_annotation_style": "auto",
             "external_modules": [],
             "additional_bases": {
-                "BigFileStore": [
+                "MediaStore": [
                     "dokuments.traits.HasDownloadAccessor"
                 ]
             },

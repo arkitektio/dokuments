@@ -1,7 +1,9 @@
-fragment BigFileStore on BigFileStore {
+fragment MediaStore on MediaStore {
   id
   key
   bucket
   path
-  presignedUrl
+  sizeBytes
+  originalFileName
+  contentType
 }

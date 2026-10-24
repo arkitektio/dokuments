@@ -34,3 +34,12 @@ def test_a_document_is_created_from_a_file(deployed_app: DeployedDokuments) -> N
     document = deployed_app.dokuments.create_document(title="Test Document", file=upload(deployed_app).id)
     assert document.title == "Test Document"
     assert document.pages == ()
+
+
+@pytest.mark.integration
+def test_an_uploaded_file_downloads_with_a_read_grant(deployed_app: DeployedDokuments, tmp_path) -> None:  # noqa: ANN001
+    """The bytes come back through ``requestMediaAccess``: there are no presigned URLs."""
+    file = upload(deployed_app)
+    assert file.store is not None
+    path = file.store.download(str(tmp_path / "back.pdf"))
+    assert open(path, "rb").read() == b"%PDF-1.4 a tiny document"

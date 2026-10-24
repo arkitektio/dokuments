@@ -1,22 +1,15 @@
-"""
-Temporary Credentials for a file download that can be used by a Client (e.g. in a python datalayer)
-"""
-type AccessCredentials {
-  accessKey: String!
-  secretKey: String!
-  sessionToken: String!
-  bucket: String!
-  key: String!
-  path: String!
+directive @auth(required_scopes: [String!], required_roles: [String!], required_org_roles: [String!], any_scope_of: [String!], any_role_of: [String!], any_org_role_of: [String!], allow_scoped: Boolean) on FIELD_DEFINITION
+
+schema @link(url: "https://specs.apollo.dev/federation/v2.11", import: ["@key"]) {
+  query: Query
+  mutation: Mutation
+  subscription: Subscription
 }
 
-type BigFileStore {
-  id: ID!
-  path: String!
-  bucket: String!
-  key: String!
-  presignedUrl: String!
-}
+"""
+A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string.
+"""
+scalar ByteCount
 
 input CreateDocumentInput {
   file: ID = null
@@ -29,20 +22,6 @@ input CreatePageInput {
   document: ID!
   ocrResult: OCRPageResultInput!
   content: String = null
-}
-
-"""
-Temporary Credentials for a file upload that can be used by a Client (e.g. in a python datalayer)
-"""
-type Credentials {
-  status: String!
-  accessKey: String!
-  secretKey: String!
-  sessionToken: String!
-  datalayer: String!
-  bucket: String!
-  key: String!
-  store: String!
 }
 
 input DeleteFileInput {
@@ -73,7 +52,7 @@ input DocumentFilter {
 type File {
   id: ID!
   name: String!
-  store: BigFileStore!
+  store: MediaStore
 
   """The documents that reference this file"""
   documents(filters: DocumentFilter, pagination: OffsetPaginationInput): [Document!]!
@@ -102,21 +81,98 @@ The `FileLike` scalar type represents a reference to a big file storage previous
 """
 scalar FileLike
 
+input FinishMediaUploadInput {
+  storeId: String!
+  valid: Boolean! = true
+}
+
 input FromFileLike {
   file: FileLike!
   dataset: ID = null
   origins: [ID!] = null
 }
 
+"""Temporary S3 credentials for reading a media object."""
+type GeneralMediaAccessGrant {
+  path: String!
+  store: String
+  status: String!
+  accessKey: String!
+  secretKey: String!
+  sessionToken: String!
+  region: String!
+  bucket: String!
+  expiresIn: Int!
+}
+
+"""Temporary S3 credentials for reading a media object."""
+type MediaAccessGrant {
+  status: String!
+  accessKey: String!
+  secretKey: String!
+  sessionToken: String!
+  region: String!
+  bucket: String!
+  key: String!
+  path: String!
+  expiresIn: Int!
+  store: String
+}
+
+type MediaStore @key(fields: "id", resolvable: true) {
+  id: ID!
+  path: String!
+  bucket: String!
+  key: String!
+
+  """
+  The byte budget the upload grant advertised for this store. Advertised, not enforced: a session policy bounds what a credential may write, never how much, so a store may exceed this
+  """
+  maxBytes: ByteCount
+
+  """
+  How many bytes this store actually holds, measured when its upload was finished. Null while unfinished, or for stores written before this was recorded
+  """
+  sizeBytes: ByteCount
+  originalFileName: String
+  contentType: String
+
+  """Get temporary S3 read credentials for the media object."""
+  accessGrant: MediaAccessGrant!
+}
+
+"""Temporary S3 credentials for uploading a media object."""
+type MediaUploadGrant {
+  status: String!
+  accessKey: String!
+  secretKey: String!
+  sessionToken: String!
+  region: String!
+  bucket: String!
+  key: String!
+  path: String!
+  expiresIn: Int!
+  store: String!
+  maxBytes: ByteCount!
+  originalFileName: String
+  uploadFileName: String!
+  uploadContentType: String
+}
+
 type Mutation {
-  """Request credentials to upload a new file"""
-  requestFileUpload(input: RequestFileUploadInput!): Credentials!
+  """
+  Request temporary S3 credentials to upload one file (a document, or a page's image).
+  """
+  requestMediaUpload(input: RequestMediaUploadInput!): MediaUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
 
-  """Request presigned credentials for file upload"""
-  requestFileUploadPresigned(input: RequestFileUploadInput!): PresignedPostCredentials!
+  """Finalize an upload after the client has written the object."""
+  finishMediaUpload(input: FinishMediaUploadInput!): MediaStore! @auth(any_role_of: ["admin", "editor", "bot"])
 
-  """Request credentials to access a file"""
-  requestFileAccess(input: RequestFileAccessInput!): AccessCredentials!
+  """Request temporary S3 read credentials for an uploaded file."""
+  requestMediaAccess(input: RequestMediaAccessInput!): MediaAccessGrant!
+
+  """Request temporary S3 read credentials for the organization's files."""
+  requestGeneralMediaAccess(input: RequestGeneralMediaAccessInput!): GeneralMediaAccessGrant!
 
   """Create a file from file-like data"""
   fromFileLike(input: FromFileLike!): File!
@@ -165,7 +221,7 @@ type Page {
   id: ID!
   document: Document!
   index: Int!
-  image: BigFileStore!
+  image: MediaStore!
 
   """The content of the page as a flat string."""
   content: String!
@@ -183,22 +239,9 @@ input PageFilter {
   DISTINCT: Boolean
 }
 
-"""
-Temporary Credentials for a file upload that can be used by a Client (e.g. in a python datalayer)
-"""
-type PresignedPostCredentials {
-  key: String!
-  xAmzAlgorithm: String!
-  xAmzCredential: String!
-  xAmzDate: String!
-  xAmzSignature: String!
-  policy: String!
-  datalayer: String!
-  bucket: String!
-  store: String!
-}
-
 type Query {
+  _entities(representations: [_Any!]!): [_Entity]!
+  _service: _Service!
   files(filters: FileFilter, pagination: OffsetPaginationInput): [File!]!
   documents(filters: DocumentFilter, pagination: OffsetPaginationInput): [Document!]!
   pages(filters: PageFilter, pagination: OffsetPaginationInput): [Page!]!
@@ -216,14 +259,18 @@ type Query {
   ): Page!
 }
 
-input RequestFileAccessInput {
-  store: ID!
-  duration: Int
+input RequestGeneralMediaAccessInput {
+  expiresIn: Int = null
 }
 
-input RequestFileUploadInput {
-  fileName: String!
-  datalayer: String!
+input RequestMediaAccessInput {
+  storeId: String!
+}
+
+input RequestMediaUploadInput {
+  originalFileName: String!
+  fileSize: ByteCount = null
+  contentType: String = null
 }
 
 input StrFilterLookup {
@@ -249,4 +296,12 @@ input StrFilterLookup {
 type Subscription {
   """Subscribe to real-time file updates"""
   files(dataset: ID = null): FileEvent!
+}
+
+scalar _Any
+
+union _Entity = MediaStore
+
+type _Service {
+  sdl: String!
 }
