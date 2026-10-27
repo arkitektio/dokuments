@@ -94,14 +94,13 @@ input FromFileLike {
 
 """Temporary S3 credentials for reading a media object."""
 type GeneralMediaAccessGrant {
-  path: String!
-  store: String
   status: String!
   accessKey: String!
   secretKey: String!
   sessionToken: String!
   region: String!
   bucket: String!
+  prefix: String!
   expiresIn: Int!
 }
 
@@ -167,6 +166,11 @@ type Mutation {
 
   """Finalize an upload after the client has written the object."""
   finishMediaUpload(input: FinishMediaUploadInput!): MediaStore! @auth(any_role_of: ["admin", "editor", "bot"])
+
+  """
+  Reissue upload credentials for a media upload still in flight, to the same key, so a write that outlives its credentials carries on. Only the uploader may, never for a finished store, and never past the upload's time limit
+  """
+  refreshMediaUpload(input: RefreshUploadInput!): MediaUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
 
   """Request temporary S3 read credentials for an uploaded file."""
   requestMediaAccess(input: RequestMediaAccessInput!): MediaAccessGrant!
@@ -259,6 +263,10 @@ type Query {
   ): Page!
 }
 
+input RefreshUploadInput {
+  storeId: String!
+}
+
 input RequestGeneralMediaAccessInput {
   expiresIn: Int = null
 }
@@ -269,7 +277,7 @@ input RequestMediaAccessInput {
 
 input RequestMediaUploadInput {
   originalFileName: String!
-  fileSize: ByteCount = null
+  fileSize: ByteCount!
   contentType: String = null
 }
 

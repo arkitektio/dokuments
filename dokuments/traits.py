@@ -27,4 +27,4 @@ class HasDownloadAccessor(ContextBound, BaseModel):
         if not isinstance(client, Dokuments):
             raise ValueError("This store was not fetched through a Dokuments client, so there is none to ask for a read grant.")
         store_id, key = get_attributes_or_error(self, "id", "key")
-        return download_file(client, store_id, file_name or key)
+        return download_file(client, store_id, file_name or key.rsplit("/", 1)[-1])

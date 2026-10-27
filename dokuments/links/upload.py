@@ -1,5 +1,5 @@
 import asyncio
-import os
+import io
 
 
 from dokuments.scalars import FileLike
@@ -53,12 +53,19 @@ async def apply_recursive(
         return obj  # type: ignore
 
 
-def _size_of(file: FileLike) -> int | None:
-    """The file's size, when it can be learned without reading it: what the grant is budgeted for."""
-    try:
-        return os.fstat(file.value.fileno()).st_size
-    except (AttributeError, OSError, ValueError):
-        return None
+def _size_of(file: FileLike) -> int:
+    """How many bytes the upload will send: the size the grant declares, and is then held to.
+
+    A file object is measured from where it stands to its end -- that is what gets read --
+    and left where it was; raw bytes by their length.
+    """
+    value = file.value
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return len(value)
+    position = value.tell()
+    end = value.seek(0, io.SEEK_END)
+    value.seek(position)
+    return end - position
 
 
 class UploadLink(ParsingLink):

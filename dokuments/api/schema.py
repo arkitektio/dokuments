@@ -110,6 +110,18 @@ class OCRTextLineInput(BaseModel):
     )
 
 
+class RefreshUploadInput(BaseModel):
+    """No documentation"""
+
+    store_id: str = Field(
+        validation_alias=AliasChoices("store_id", "storeId"),
+        serialization_alias="storeId",
+    )
+    model_config = ConfigDict(
+        frozen=True, extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
 class RequestMediaAccessInput(BaseModel):
     """No documentation"""
 
@@ -129,10 +141,9 @@ class RequestMediaUploadInput(BaseModel):
         validation_alias=AliasChoices("original_file_name", "originalFileName"),
         serialization_alias="originalFileName",
     )
-    file_size: int | None = Field(
+    file_size: int = Field(
         validation_alias=AliasChoices("file_size", "fileSize"),
         serialization_alias="fileSize",
-        default=None,
     )
     content_type: str | None = Field(
         validation_alias=AliasChoices("content_type", "contentType"),
@@ -357,6 +368,25 @@ class RequestMediaAccessMutation(BaseModel):
         document = "fragment MediaAccessGrant on MediaAccessGrant {\n  accessKey\n  secretKey\n  sessionToken\n  path\n  key\n  bucket\n  region\n  expiresIn\n  store\n  __typename\n}\n\nmutation RequestMediaAccess($input: RequestMediaAccessInput!) {\n  requestMediaAccess(input: $input) {\n    ...MediaAccessGrant\n    __typename\n  }\n}"
 
 
+class RefreshMediaUploadMutation(BaseModel):
+    """Reissues credentials for an upload still in flight, to the same key: a write that outlives its
+    credentials asks for this before they expire and carries on. Only the uploader may.
+    """
+
+    refresh_media_upload: MediaUploadGrant = Field(alias="refreshMediaUpload")
+    "Reissue upload credentials for a media upload still in flight, to the same key, so a write that outlives its credentials carries on. Only the uploader may, never for a finished store, and never past the upload's time limit"
+
+    class Arguments(BaseModel):
+        """Arguments for RefreshMediaUpload"""
+
+        input: RefreshUploadInput
+
+    class Meta:
+        """Meta class for RefreshMediaUpload"""
+
+        document = "fragment MediaUploadGrant on MediaUploadGrant {\n  accessKey\n  secretKey\n  sessionToken\n  path\n  key\n  bucket\n  region\n  expiresIn\n  maxBytes\n  store\n  __typename\n}\n\nmutation RefreshMediaUpload($input: RefreshUploadInput!) {\n  refreshMediaUpload(input: $input) {\n    ...MediaUploadGrant\n    __typename\n  }\n}"
+
+
 class CreatePageMutation(BaseModel):
     """No documentation found for this operation."""
 
@@ -554,7 +584,7 @@ class DokumentsApi:
     async def arequest_media_upload(
         self,
         original_file_name: str,
-        file_size: int | None | UnsetType = UNSET,
+        file_size: int,
         content_type: str | None | UnsetType = UNSET,
     ) -> MediaUploadGrant:
         """RequestMediaUpload
@@ -563,7 +593,7 @@ class DokumentsApi:
 
         Args:
             original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-            file_size: A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string.
+            file_size: A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string. (required)
             content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
 
         Returns:
@@ -572,8 +602,7 @@ class DokumentsApi:
         variables: dict[str, builtins.object] = {}
         _input: dict[str, builtins.object] = {}
         _input["originalFileName"] = original_file_name
-        if file_size is not UNSET:
-            _input["fileSize"] = file_size
+        _input["fileSize"] = file_size
         if content_type is not UNSET:
             _input["contentType"] = content_type
         variables["input"] = _input
@@ -584,7 +613,7 @@ class DokumentsApi:
     def request_media_upload(
         self,
         original_file_name: str,
-        file_size: int | None | UnsetType = UNSET,
+        file_size: int,
         content_type: str | None | UnsetType = UNSET,
     ) -> MediaUploadGrant:
         """RequestMediaUpload
@@ -593,7 +622,7 @@ class DokumentsApi:
 
         Args:
             original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-            file_size: A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string.
+            file_size: A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string. (required)
             content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
 
         Returns:
@@ -602,8 +631,7 @@ class DokumentsApi:
         variables: dict[str, builtins.object] = {}
         _input: dict[str, builtins.object] = {}
         _input["originalFileName"] = original_file_name
-        if file_size is not UNSET:
-            _input["fileSize"] = file_size
+        _input["fileSize"] = file_size
         if content_type is not UNSET:
             _input["contentType"] = content_type
         variables["input"] = _input
@@ -684,6 +712,42 @@ class DokumentsApi:
         _input["storeId"] = store_id
         variables["input"] = _input
         return self.execute(RequestMediaAccessMutation, variables).request_media_access
+
+    async def arefresh_media_upload(self, store_id: str) -> MediaUploadGrant:
+        """RefreshMediaUpload
+         Reissues credentials for an upload still in flight, to the same key: a write that outlives its
+         credentials asks for this before they expire and carries on. Only the uploader may.
+
+        Args:
+            store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+
+        Returns:
+            MediaUploadGrant
+        """
+        variables: dict[str, builtins.object] = {}
+        _input: dict[str, builtins.object] = {}
+        _input["storeId"] = store_id
+        variables["input"] = _input
+        return (
+            await self.aexecute(RefreshMediaUploadMutation, variables)
+        ).refresh_media_upload
+
+    def refresh_media_upload(self, store_id: str) -> MediaUploadGrant:
+        """RefreshMediaUpload
+         Reissues credentials for an upload still in flight, to the same key: a write that outlives its
+         credentials asks for this before they expire and carries on. Only the uploader may.
+
+        Args:
+            store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+
+        Returns:
+            MediaUploadGrant
+        """
+        variables: dict[str, builtins.object] = {}
+        _input: dict[str, builtins.object] = {}
+        _input["storeId"] = store_id
+        variables["input"] = _input
+        return self.execute(RefreshMediaUploadMutation, variables).refresh_media_upload
 
     async def acreate_page(
         self,
