@@ -926,5 +926,6 @@ class DokumentsApi:
             yield event.files
 
 
+SCOPES: list[str] = ["dokuments_read", "dokuments_write"]
 CreatePageInput.model_rebuild()
 OCRPageResultInput.model_rebuild()

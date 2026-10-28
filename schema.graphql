@@ -162,33 +162,33 @@ type Mutation {
   """
   Request temporary S3 credentials to upload one file (a document, or a page's image).
   """
-  requestMediaUpload(input: RequestMediaUploadInput!): MediaUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
+  requestMediaUpload(input: RequestMediaUploadInput!): MediaUploadGrant! @auth(required_scopes: ["dokuments_write"], any_role_of: ["dokuments_editor"])
 
   """Finalize an upload after the client has written the object."""
-  finishMediaUpload(input: FinishMediaUploadInput!): MediaStore! @auth(any_role_of: ["admin", "editor", "bot"])
+  finishMediaUpload(input: FinishMediaUploadInput!): MediaStore! @auth(required_scopes: ["dokuments_write"], any_role_of: ["dokuments_editor"])
 
   """
   Reissue upload credentials for a media upload still in flight, to the same key, so a write that outlives its credentials carries on. Only the uploader may, never for a finished store, and never past the upload's time limit
   """
-  refreshMediaUpload(input: RefreshUploadInput!): MediaUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
+  refreshMediaUpload(input: RefreshUploadInput!): MediaUploadGrant! @auth(required_scopes: ["dokuments_write"], any_role_of: ["dokuments_editor"])
 
   """Request temporary S3 read credentials for an uploaded file."""
-  requestMediaAccess(input: RequestMediaAccessInput!): MediaAccessGrant!
+  requestMediaAccess(input: RequestMediaAccessInput!): MediaAccessGrant! @auth(required_scopes: ["dokuments_read"])
 
   """Request temporary S3 read credentials for the organization's files."""
-  requestGeneralMediaAccess(input: RequestGeneralMediaAccessInput!): GeneralMediaAccessGrant!
+  requestGeneralMediaAccess(input: RequestGeneralMediaAccessInput!): GeneralMediaAccessGrant! @auth(required_scopes: ["dokuments_read"])
 
   """Create a file from file-like data"""
-  fromFileLike(input: FromFileLike!): File!
+  fromFileLike(input: FromFileLike!): File! @auth(required_scopes: ["dokuments_write"], any_role_of: ["dokuments_editor"])
 
   """Delete an existing file"""
-  deleteFile(input: DeleteFileInput!): ID!
+  deleteFile(input: DeleteFileInput!): ID! @auth(required_scopes: ["dokuments_write"], any_role_of: ["dokuments_editor"])
 
   """Create a new document"""
-  createDocument(input: CreateDocumentInput!): Document!
+  createDocument(input: CreateDocumentInput!): Document! @auth(required_scopes: ["dokuments_write"], any_role_of: ["dokuments_editor"])
 
   """Create a new page in a document"""
-  createPage(input: CreatePageInput!): Page!
+  createPage(input: CreatePageInput!): Page! @auth(required_scopes: ["dokuments_write"], any_role_of: ["dokuments_editor"])
 }
 
 type OCRPageResult {
@@ -246,21 +246,21 @@ input PageFilter {
 type Query {
   _entities(representations: [_Any!]!): [_Entity]!
   _service: _Service!
-  files(filters: FileFilter, pagination: OffsetPaginationInput): [File!]!
-  documents(filters: DocumentFilter, pagination: OffsetPaginationInput): [Document!]!
-  pages(filters: PageFilter, pagination: OffsetPaginationInput): [Page!]!
+  files(filters: FileFilter, pagination: OffsetPaginationInput): [File!]! @auth(required_scopes: ["dokuments_read"])
+  documents(filters: DocumentFilter, pagination: OffsetPaginationInput): [Document!]! @auth(required_scopes: ["dokuments_read"])
+  pages(filters: PageFilter, pagination: OffsetPaginationInput): [Page!]! @auth(required_scopes: ["dokuments_read"])
   file(
     """The unique identifier of an object"""
     id: ID!
-  ): File!
+  ): File! @auth(required_scopes: ["dokuments_read"])
   document(
     """The unique identifier of an object"""
     id: ID!
-  ): Document!
+  ): Document! @auth(required_scopes: ["dokuments_read"])
   page(
     """The unique identifier of an object"""
     id: ID!
-  ): Page!
+  ): Page! @auth(required_scopes: ["dokuments_read"])
 }
 
 input RefreshUploadInput {
@@ -303,7 +303,7 @@ input StrFilterLookup {
 
 type Subscription {
   """Subscribe to real-time file updates"""
-  files(dataset: ID = null): FileEvent!
+  files(dataset: ID = null): FileEvent! @auth(required_scopes: ["dokuments_read"])
 }
 
 scalar _Any

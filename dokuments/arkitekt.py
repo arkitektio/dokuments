@@ -21,7 +21,7 @@ from rath.links.split import SplitLink
 from arkitekt_spec.declare.app import AppRegistry
 from arkitekt_spec.declare.widgets import SearchWidget
 
-from dokuments.api.schema import File, SearchFilesQuery
+from dokuments.api.schema import SCOPES, File, SearchFilesQuery
 from dokuments.datalayer import DataLayer
 from dokuments.dokuments import Dokuments
 from dokuments.links.upload import UploadLink
@@ -40,6 +40,9 @@ registry = AppRegistry()
 @registry.service(
     schema=build_relative_path("api", "schema.graphql"),
     turms=build_relative_path("api", "project.json"),
+    # What the client's operations need at dokuments, as turms gathered it from the schema: every
+    # app using dokuments asks for it.
+    scopes=SCOPES,
 )
 def dokuments(
     dokuments: Annotated[
