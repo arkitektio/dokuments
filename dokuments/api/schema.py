@@ -4,7 +4,7 @@ from dokuments.traits import HasDownloadAccessor
 from enum import Enum
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from rath.scalars import ID, IDCoercible
-from typing import Annotated, AsyncIterator, Iterable, Iterator, Literal
+from typing import Annotated, AsyncIterator, ClassVar, Iterable, Iterator, Literal
 
 
 class GraphQLDefault:
@@ -481,6 +481,8 @@ class DokumentsApi:
     Each method hands its operation to ``execute``, ``aexecute``, ``subscribe``, ``asubscribe`` of ``self``, which the class this one is mixed into (or a base of it) provides.
     """
 
+    __scopes__: ClassVar[tuple[str, ...]] = ("dokuments_read", "dokuments_write")
+
     async def acreate_document(
         self, title: str, file: IDCoercible | None | UnsetType = UNSET
     ) -> Document:
@@ -926,6 +928,5 @@ class DokumentsApi:
             yield event.files
 
 
-SCOPES: list[str] = ["dokuments_read", "dokuments_write"]
 CreatePageInput.model_rebuild()
 OCRPageResultInput.model_rebuild()

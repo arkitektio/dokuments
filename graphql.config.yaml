@@ -33,15 +33,23 @@ projects:
             # in. Each method hands its operation to execute/aexecute/subscribe/
             # asubscribe of self, which the Dokuments client implements over its rath.
             client_class: DokumentsApi
+            # What the operations need at dokuments, read off the schema's
+            # `@auth(required_scopes: ...)` on every root field they select: every
+            # app using dokuments asks for it (arkitekt-spec reads it off the client).
+            client_fields:
+              - name: __scopes__
+                kind: tuple[str, ...]
+                collector:
+                  type: root_field_directive
+                  directive: auth
+                  argument: required_scopes
+                combine: union
             reserved_from:
               - dokuments.dokuments.Dokuments
             coercible_scalars:
               ID: rath.scalars.IDCoercible
             expand_input_types:
               - input
-          # SCOPES: what the operations above need at dokuments, read off the schema's
-          # `@auth(required_scopes: ...)`. The service hands it to every app's manifest.
-          - type: turms.plugins.scopes.ScopesPlugin
         processors:
           - type: turms.processors.black.BlackProcessor
         scalar_definitions:
