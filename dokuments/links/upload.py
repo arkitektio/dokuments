@@ -5,7 +5,7 @@ import io
 from dokuments.scalars import FileLike
 from rath.links.parsing import ParsingLink
 from rath.operation import Operation, opify
-from typing import Any, Tuple, Type, Union
+from typing import Any
 from mikro.io.upload import aupload_bigfile
 from pydantic import Field
 from concurrent.futures import ThreadPoolExecutor
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 
 async def apply_recursive(
-    func, obj, typeguard: Union[Type[Any], Tuple[Type[Any], ...]]
+    func, obj, typeguard: type[Any] | tuple[type[Any], ...]
 ) -> Any:  # type: ignore
     """
     Recursively applies an asynchronous function to elements in a nested structure.

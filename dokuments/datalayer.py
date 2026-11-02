@@ -34,13 +34,12 @@ Example:
 import contextvars
 import ssl
 from types import TracebackType
-from typing import Optional
 
 from fakts import Alias
 from koil.composition import KoiledModel
 
 
-current_dokuments_datalayer: contextvars.ContextVar[Optional["DataLayer"]] = (
+current_dokuments_datalayer: contextvars.ContextVar["DataLayer | None"] = (
     contextvars.ContextVar("current_dokuments_datalayer", default=None)
 )
 

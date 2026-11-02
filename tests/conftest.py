@@ -3,7 +3,7 @@ from dokker import testing, Deployment
 from dokker.log_watcher import LogWatcher
 import os
 import socket
-from typing import Generator
+from collections.abc import Generator
 from dokuments.dokuments import Dokuments
 from rath.links.auth import ComposedAuthLink
 from rath.links.aiohttp import AIOHttpLink
