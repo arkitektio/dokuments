@@ -26,8 +26,10 @@ authentikate:
     test:
       sub: 1
       iss: lok
-      roles:
-        - editor
+      # The server enforces the scopes and roles its contract declares; a static
+      # token carries neither unless it says so (a bare `editor` means nothing).
+      scope: openid dokuments_all
+      roles: [dokuments_admin]
 redis:
   host: redis
   port: 6379
