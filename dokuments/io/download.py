@@ -15,7 +15,12 @@ if TYPE_CHECKING:
 async def adownload_file(dokuments: "Dokuments", store_id: str, file_name: str) -> str:
     """Write the media store ``store_id`` to ``file_name`` and return the path."""
     grant = await dokuments.arequest_media_access(store_id=ID.validate(store_id))
-    store = create_s3_store(await dokuments.datalayer.get_endpoint_url(), grant, proxy=dokuments.datalayer.proxy)
+    store = create_s3_store(
+        await dokuments.datalayer.get_endpoint_url(),
+        grant,
+        proxy=dokuments.datalayer.proxy,
+        certificates=dokuments.datalayer.certificates,
+    )
 
     parent = os.path.dirname(file_name)
     if parent:
