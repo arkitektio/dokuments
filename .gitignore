@@ -151,3 +151,6 @@ data
 fakts.yaml
 # macOS
 .DS_Store
+
+# The server version the integration tests ran against, stamped into a release.
+dokuments/_tested.json

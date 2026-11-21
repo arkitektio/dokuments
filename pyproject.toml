@@ -14,7 +14,7 @@ dependencies = [
     "websockets>=15.0.1",
     # The service and structures are declared with arkitekt-spec, its aliases resolved by fakts
     # (4.1: a service's scopes).
-    "arkitekt-spec>=5.0",
+    "arkitekt-spec>=12.9",
     "fakts>=6.1",
 ]
 
@@ -37,11 +37,15 @@ include = ["dokuments"]
 exclude = ["**/__pycache__", "tests"]
 typeCheckingMode = "standard"
 
+# `_tested.json` is written by the integration tests (the server version they ran against)
+# and is not in git: named as an artifact, on both, it is shipped all the same.
 [tool.hatch.build.targets.sdist]
 include = ["dokuments"]
+artifacts = ["dokuments/_tested.json"]
 
 [tool.hatch.build.targets.wheel]
 include = ["dokuments"]
+artifacts = ["dokuments/_tested.json"]
 
 
 [tool.ruff.lint]

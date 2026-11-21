@@ -19,6 +19,7 @@ from rath.links.graphql_ws import GraphQLWSLink
 from rath.links.split import SplitLink
 
 from arkitekt_spec.declare.app import AppRegistry
+from arkitekt_spec.declare.tested import tested_against
 from arkitekt_spec.declare.widgets import SearchWidget
 
 from dokuments.api.schema import File, SearchFilesQuery
@@ -37,6 +38,10 @@ registry = AppRegistry()
 """What dokuments brings to an app: its service, and the types it sends by id."""
 
 
+TESTED = tested_against("dokuments")
+"""The dokuments server this release wants: the one its release job tested it against."""
+
+
 @registry.service(
     schema=build_relative_path("api", "schema.graphql"),
     turms=build_relative_path("api", "project.json"),
@@ -44,7 +49,7 @@ registry = AppRegistry()
 def dokuments(
     dokuments: Annotated[
         Alias,
-        Require("live.arkitekt.dokuments", "Where the user's documents live"),
+        Require("live.arkitekt.dokuments", "Where the user's documents live", version=TESTED),
     ],
     datalayer: Annotated[
         Alias,
