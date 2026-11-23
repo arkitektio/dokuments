@@ -1,17 +1,16 @@
 import asyncio
 import io
-
-
-from dokuments.scalars import FileLike
-from rath.links.parsing import ParsingLink
-from rath.operation import Operation, opify
-from typing import Any
-from mikro.io.upload import aupload_bigfile
-from pydantic import Field
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
+from typing import TYPE_CHECKING, Any
+
+from mikro.io.upload import aupload_bigfile
+from pydantic import Field
+from rath.links.parsing import ParsingLink
+from rath.operation import Operation, opify
+
 from dokuments.datalayer import DataLayer
-from typing import TYPE_CHECKING
+from dokuments.scalars import FileLike
 
 if TYPE_CHECKING:
     from dokuments.datalayer import DataLayer
@@ -114,13 +113,23 @@ class UploadLink(ParsingLink):
         size = _size_of(file)
         granted = await self._aexecute(
             RequestMediaUploadMutation.Meta.document,
-            {"input": RequestMediaUploadInput(originalFileName=file.file_name, fileSize=size, contentType=file.mime_type).model_dump(by_alias=True, exclude_none=True)},
+            {
+                "input": RequestMediaUploadInput(
+                    originalFileName=file.file_name,
+                    fileSize=size,
+                    contentType=file.mime_type,
+                ).model_dump(by_alias=True, exclude_none=True)
+            },
         )
         credentials = RequestMediaUploadMutation(**granted).request_media_upload
         store = await aupload_bigfile(file, credentials, datalayer)
         await self._aexecute(
             FinishMediaUploadMutation.Meta.document,
-            {"input": FinishMediaUploadInput(storeId=store, valid=True).model_dump(by_alias=True, exclude_none=True)},
+            {
+                "input": FinishMediaUploadInput(storeId=store, valid=True).model_dump(
+                    by_alias=True, exclude_none=True
+                )
+            },
         )
         return store
 

@@ -1,10 +1,11 @@
-import os
+import io
 import mimetypes
+import os
 from pathlib import Path
 from typing import IO, Any, TypeAlias
-import io
-from pydantic_core import core_schema, CoreSchema
+
 from pydantic import GetCoreSchemaHandler
+from pydantic_core import CoreSchema, core_schema
 
 FileCoercible: TypeAlias = str | bytes | Path | io.BufferedReader
 

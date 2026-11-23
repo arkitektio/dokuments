@@ -8,9 +8,11 @@ ask for the ``Dokuments`` it returns. An app takes all of it in with
 import os
 from typing import Annotated
 
+from arkitekt_spec.declare.app import AppRegistry
+from arkitekt_spec.declare.tested import tested_against
+from arkitekt_spec.declare.widgets import SearchWidget
 from fakts import Alias, Require, TokenLoader
 from fakts.contrib.rath.auth import FaktsAuthLink
-from graphql import OperationType
 from rath.links.aiohttp import AIOHttpLink
 from rath.links.compose import compose
 from rath.links.dictinglink import DictingLink
@@ -18,15 +20,12 @@ from rath.links.file import FileExtraction
 from rath.links.graphql_ws import GraphQLWSLink
 from rath.links.split import SplitLink
 
-from arkitekt_spec.declare.app import AppRegistry
-from arkitekt_spec.declare.tested import tested_against
-from arkitekt_spec.declare.widgets import SearchWidget
-
 from dokuments.api.schema import File, SearchFilesQuery
 from dokuments.datalayer import DataLayer
 from dokuments.dokuments import Dokuments
 from dokuments.links.upload import UploadLink
 from dokuments.rath import DokumentsRath
+from graphql import OperationType
 
 
 def build_relative_path(*path: str) -> str:
@@ -49,7 +48,9 @@ TESTED = tested_against("dokuments")
 def dokuments(
     dokuments: Annotated[
         Alias,
-        Require("live.arkitekt.dokuments", "Where the user's documents live", version=TESTED),
+        Require(
+            "live.arkitekt.dokuments", "Where the user's documents live", version=TESTED
+        ),
     ],
     datalayer: Annotated[
         Alias,
@@ -82,8 +83,16 @@ def dokuments(
                 UploadLink(datalayer=store),
                 FaktsAuthLink(token_loader=tokens),
                 SplitLink(
-                    left=AIOHttpLink(endpoint_url=dokuments.to_http_path("graphql"), proxy=dokuments.proxy, ssl_context=dokuments.ssl_context()),
-                    right=GraphQLWSLink(ws_endpoint_url=dokuments.to_ws_path("graphql"), proxy=dokuments.proxy, ssl_context=dokuments.ssl_context()),
+                    left=AIOHttpLink(
+                        endpoint_url=dokuments.to_http_path("graphql"),
+                        proxy=dokuments.proxy,
+                        ssl_context=dokuments.ssl_context(),
+                    ),
+                    right=GraphQLWSLink(
+                        ws_endpoint_url=dokuments.to_ws_path("graphql"),
+                        proxy=dokuments.proxy,
+                        ssl_context=dokuments.ssl_context(),
+                    ),
                     split=lambda o: o.node.operation != OperationType.SUBSCRIPTION,
                 ),
             ),

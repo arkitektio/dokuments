@@ -1,26 +1,28 @@
-from arkitekt_spec.declare.tested import record_tested
-import pytest
-from dokker import testing, Deployment
-from dokker.log_watcher import LogWatcher
 import os
 import socket
 from collections.abc import Generator
-from dokuments.dokuments import Dokuments
-from rath.links.auth import ComposedAuthLink
+from dataclasses import dataclass
+
+import pytest
+from arkitekt_spec.declare.tested import record_tested
+from dokker import Deployment, testing
+from dokker.log_watcher import LogWatcher
 from rath.links.aiohttp import AIOHttpLink
-from rath.links.graphql_ws import GraphQLWSLink
-from rath.links.timeout import TimeoutLink
+from rath.links.auth import ComposedAuthLink
 from rath.links.compose import compose
 from rath.links.dictinglink import DictingLink
 from rath.links.file import FileExtraction
+from rath.links.graphql_ws import GraphQLWSLink
+from rath.links.timeout import TimeoutLink
+
 from dokuments.datalayer import DataLayer
+from dokuments.dokuments import Dokuments
 from dokuments.links.upload import UploadLink
 from dokuments.rath import (
     DokumentsRath,
     SplitLink,
 )
 from graphql import OperationType
-from dataclasses import dataclass
 
 project_path = os.path.join(os.path.dirname(__file__), "integration")
 docker_compose_file = os.path.join(project_path, "docker-compose.yml")
@@ -56,7 +58,10 @@ def integration_ports() -> Generator[dict[str, int], None, None]:
     know a port docker has yet to pick.
     """
     service_port, rustfs_port = _reserve_free_ports(2)
-    env = {"DOKUMENTS_HOST_PORT": str(service_port), "RUSTFS_HOST_PORT": str(rustfs_port)}
+    env = {
+        "DOKUMENTS_HOST_PORT": str(service_port),
+        "RUSTFS_HOST_PORT": str(rustfs_port),
+    }
     previous = {key: os.environ.get(key) for key in env}
     os.environ.update(env)
     try:
@@ -84,7 +89,9 @@ class DeployedDokuments:
 
 
 @pytest.fixture(scope="session")
-def deployed_app(integration_ports: dict[str, int]) -> Generator[DeployedDokuments, None, None]:
+def deployed_app(
+    integration_ports: dict[str, int],
+) -> Generator[DeployedDokuments, None, None]:
     """Fixture to deploy the Dokuments application using Docker Compose.
 
     A `testing()` stack: a compose project of its own on this run's ports, taken
@@ -92,7 +99,9 @@ def deployed_app(integration_ports: dict[str, int]) -> Generator[DeployedDokumen
     """
     setup = testing(docker_compose_file)
     setup.add_health_check(
-        url=lambda spec: f"http://localhost:{spec.find_service('dokuments').get_port_for_internal(80).published}/graphql",
+        url=lambda spec: (
+            f"http://localhost:{spec.find_service('dokuments').get_port_for_internal(80).published}/graphql"
+        ),
         service="dokuments",
         timeout=5,
         max_retries=10,

@@ -54,7 +54,9 @@ from arkitekt import easy
 from dokuments import dokuments_service
 
 with easy("my-script", dokuments_service) as dokuments:
-    file = dokuments.from_file_like(file="scan.pdf")  # a path, a Path or a binary file object
+    file = dokuments.from_file_like(
+        file="scan.pdf"
+    )  # a path, a Path or a binary file object
     document = dokuments.create_document(title="My scan", file=file.id)
     print(document.id, file.store.download())  # the bytes, through a scoped read grant
 ```

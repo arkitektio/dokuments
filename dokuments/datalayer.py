@@ -38,7 +38,6 @@ from types import TracebackType
 from fakts import Alias
 from koil.composition import KoiledModel
 
-
 current_dokuments_datalayer: contextvars.ContextVar["DataLayer | None"] = (
     contextvars.ContextVar("current_dokuments_datalayer", default=None)
 )
@@ -74,8 +73,11 @@ class DataLayer(KoiledModel):
         pinned, the public roots otherwise."""
         from arkitekt_spec.declare import tls
 
-        return tls.pinned_context(self.certificates) if self.certificates else tls.default_context()
-
+        return (
+            tls.pinned_context(self.certificates)
+            if self.certificates
+            else tls.default_context()
+        )
 
     @classmethod
     def from_alias(cls, alias: "Alias") -> "DataLayer":
