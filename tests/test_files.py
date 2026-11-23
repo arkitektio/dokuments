@@ -1,4 +1,5 @@
 import io
+from pathlib import Path
 
 import pytest
 
@@ -43,7 +44,7 @@ def test_a_document_is_created_from_a_file(deployed_app: DeployedDokuments) -> N
 @pytest.mark.integration
 def test_an_uploaded_file_downloads_with_a_read_grant(
     deployed_app: DeployedDokuments,
-    tmp_path,  # noqa: ANN001
+    tmp_path: Path,
 ) -> None:
     """The bytes come back through ``requestMediaAccess``: there are no presigned URLs."""
     file = upload(deployed_app)

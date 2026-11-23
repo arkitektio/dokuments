@@ -1,5 +1,6 @@
 """Download a stored file with a scoped read grant (``requestMediaAccess``); there are no presigned URLs."""
 
+import asyncio
 import os
 from typing import TYPE_CHECKING
 
@@ -26,9 +27,14 @@ async def adownload_file(dokuments: "Dokuments", store_id: str, file_name: str) 
     if parent:
         os.makedirs(parent, exist_ok=True)
     response = await obstore.get_async(store, grant.key)
-    with open(file_name, "wb") as file:
+    # Opening, writing and closing block: each runs on a worker thread, so a
+    # large download does not stall the event loop.
+    file = await asyncio.to_thread(open, file_name, "wb")
+    try:
         async for chunk in response.stream():
-            file.write(chunk)
+            await asyncio.to_thread(file.write, chunk)
+    finally:
+        await asyncio.to_thread(file.close)
     return file_name
 
 

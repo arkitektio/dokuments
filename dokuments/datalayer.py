@@ -34,6 +34,7 @@ Example:
 import contextvars
 import ssl
 from types import TracebackType
+from typing import TypeVar
 
 from fakts import Alias
 from koil.composition import KoiledModel
@@ -41,6 +42,8 @@ from koil.composition import KoiledModel
 current_dokuments_datalayer: contextvars.ContextVar["DataLayer | None"] = (
     contextvars.ContextVar("current_dokuments_datalayer", default=None)
 )
+
+DataLayerT = TypeVar("DataLayerT", bound="DataLayer")
 
 
 class DataLayer(KoiledModel):
@@ -95,10 +98,10 @@ class DataLayer(KoiledModel):
             certificates=list(alias.certificates) if alias.is_pinned() else [],
         )
 
-    async def get_endpoint_url(self):
+    async def get_endpoint_url(self) -> str:
         return self.endpoint_url
 
-    async def __aenter__(self):
+    async def __aenter__(self: DataLayerT) -> DataLayerT:
         current_dokuments_datalayer.set(self)
         return self
 

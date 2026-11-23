@@ -2,7 +2,7 @@ import io
 import mimetypes
 import os
 from pathlib import Path
-from typing import IO, Any, TypeAlias
+from typing import IO, TypeAlias
 
 from pydantic import GetCoreSchemaHandler
 from pydantic_core import CoreSchema, core_schema
@@ -21,15 +21,15 @@ class FileLike:
         self.file_name = os.path.basename(name)
         self.mime_type = mimetypes.guess_type(self.file_name)[0]
 
-    def __get__(self, instance, owner) -> "FileLike": ...  # noqa: ANN001, D105 # type: ignore
+    def __get__(self, instance: object, owner: type | None) -> "FileLike": ...  # type: ignore
 
-    def __set__(self, instance, value: FileCoercible) -> None: ...  # noqa: ANN001, D105 # type: ignore
+    def __set__(self, instance: object, value: FileCoercible) -> None: ...  # type: ignore
 
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
-        source_type: Any,  # noqa: ANN401
-        handler: GetCoreSchemaHandler,  # noqa: ANN401
+        source_type: object,
+        handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function"""
         return core_schema.no_info_after_validator_function(
