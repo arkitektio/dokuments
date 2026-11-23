@@ -1,15 +1,112 @@
 directive @auth(required_scopes: [String!], required_roles: [String!], required_org_roles: [String!], any_scope_of: [String!], any_role_of: [String!], any_org_role_of: [String!], allow_scoped: Boolean) on FIELD_DEFINITION
 
+directive @identified(by: String!) on OBJECT
+
 schema @link(url: "https://specs.apollo.dev/federation/v2.11", import: ["@key"]) {
   query: Query
   mutation: Mutation
   subscription: Subscription
 }
 
+"""Objects to put in a collaboration at once: all of them, or none"""
+input AddManyToCollaborationInput {
+  """The collaboration's key (lok's)"""
+  collaboration: ID!
+
+  """What to put in; a whole before its parts"""
+  objects: [CollaborationObjectRef!]!
+
+  """
+  The collaboration's name, kept here when these are the first things put in
+  """
+  name: String = null
+}
+
 """
 A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string.
 """
 scalar ByteCount
+
+"""
+What a guest granted it sees of the organization: the objects put in it, and what is part of them.
+"""
+type Collaboration {
+  id: ID!
+  name: String!
+  description: String
+  createdAt: DateTime!
+
+  """
+  The collaboration's key across the hub: what lok grants, and what names it in every service
+  """
+  key: ID!
+
+  """
+  What is in the collaboration, oldest first; what is part of these is in it too. `brought` keeps what was put in by hand (false) or only what came along with it (true)
+  """
+  items(brought: Boolean = null, pagination: OffsetPaginationInput = null): [CollaborationItem!]!
+
+  """
+  How many objects are in the collaboration: all of them, or (`brought`) only those put in by hand (false) or only those that came along with one (true)
+  """
+  itemCount(brought: Boolean = null): Int!
+}
+
+"""
+One object in a collaboration: put there, or brought along with one that needs it to be seen.
+"""
+type CollaborationItem {
+  id: ID!
+
+  """The object's id, in its structure"""
+  objectId: String!
+  addedAt: DateTime!
+
+  """The structure the object is known by across the hub: @mikro/scene"""
+  identifier: String
+
+  """
+  Whether it is in the collaboration only as what another object in it needs to be seen
+  """
+  brought: Boolean!
+}
+
+"""An object to put in, or take out of, a collaboration"""
+input CollaborationObjectInput {
+  """The collaboration's key (lok's)"""
+  collaboration: ID!
+
+  """The structure the object is known by: @mikro/scene"""
+  identifier: String!
+
+  """The object's id"""
+  object: ID!
+
+  """
+  The collaboration's name, kept here when this is the first thing put in
+  """
+  name: String = null
+}
+
+"""An object, by its structure and id"""
+input CollaborationObjectRef {
+  """The structure the object is known by: @mikro/scene"""
+  identifier: String!
+
+  """The object's id"""
+  object: ID!
+}
+
+"""
+How many collaborations the organization has (a guest: theirs), and how much is in them
+"""
+type CollaborationStats {
+  """How many collaborations"""
+  count: Int!
+
+  """How many objects are in them altogether, brought along ones included"""
+  itemCount: Int!
+}
 
 input CreateDocumentInput {
   file: ID = null
@@ -24,32 +121,45 @@ input CreatePageInput {
   content: String = null
 }
 
+"""Date with time (isoformat)"""
+scalar DateTime
+
 input DeleteFileInput {
   id: ID!
 }
 
-type Document {
+type Document @identified(by: "@dokuments/document") {
   id: ID!
   file: File!
   title: String!
-  pageCount: Int
-  ocrEngine: String!
   processedAt: String
+
+  """The document's pages, in reading order (by index)."""
   pages(filters: PageFilter, pagination: OffsetPaginationInput): [Page!]!
+
+  """How many pages the document has."""
+  pageCount: Int!
 }
 
 input DocumentFilter {
   ids: [ID!]
-  search: String
+
+  """
+  Only what is in this collaboration (its key): put in, or part of what was
+  """
+  inCollaboration: ID
+
+  """Only what the workflow (its root task id) created"""
+  createdUnder: ID
   id: ID
-  name: StrFilterLookup
+  search: String
   AND: DocumentFilter
   OR: DocumentFilter
   NOT: DocumentFilter
   DISTINCT: Boolean
 }
 
-type File {
+type File @identified(by: "@dokuments/file") {
   id: ID!
   name: String!
   store: MediaStore
@@ -68,6 +178,14 @@ type FileEvent {
 input FileFilter {
   ids: [ID!]
   search: String
+
+  """
+  Only what is in this collaboration (its key): put in, or part of what was
+  """
+  inCollaboration: ID
+
+  """Only what the workflow (its root task id) created"""
+  createdUnder: ID
   id: ID
   name: StrFilterLookup
   AND: FileFilter
@@ -172,8 +290,10 @@ type Mutation {
   """
   refreshMediaUpload(input: RefreshUploadInput!): MediaUploadGrant! @auth(required_scopes: ["dokuments_write"], any_role_of: ["dokuments_editor"])
 
-  """Request temporary S3 read credentials for an uploaded file."""
-  requestMediaAccess(input: RequestMediaAccessInput!): MediaAccessGrant! @auth(required_scopes: ["dokuments_read"])
+  """
+  Request temporary S3 read credentials for an uploaded file (a file's bytes, or a page's image). A guest of the organization gets them only for what is in one of their collaborations.
+  """
+  requestMediaAccess(input: RequestMediaAccessInput!): MediaAccessGrant! @auth(required_scopes: ["dokuments_read"], allow_scoped: true)
 
   """Request temporary S3 read credentials for the organization's files."""
   requestGeneralMediaAccess(input: RequestGeneralMediaAccessInput!): GeneralMediaAccessGrant! @auth(required_scopes: ["dokuments_read"])
@@ -189,6 +309,31 @@ type Mutation {
 
   """Create a new page in a document"""
   createPage(input: CreatePageInput!): Page! @auth(required_scopes: ["dokuments_write"], any_role_of: ["dokuments_editor"])
+
+  """
+  Put a file in a collaboration (lok's, by its key), with its bytes and its pages' images: its documents and their pages are in it with it. The collaboration's row here is made the first time something is put in
+  """
+  addToCollaboration(input: CollaborationObjectInput!): Collaboration! @auth(required_scopes: ["dokuments_share"], any_role_of: ["dokuments_editor"])
+
+  """
+  Put several files in a collaboration (by its key) at once, each with what it needs to be seen: all of them, or none
+  """
+  addManyToCollaboration(input: AddManyToCollaborationInput!): Collaboration! @auth(required_scopes: ["dokuments_share"], any_role_of: ["dokuments_editor"])
+
+  """
+  Put what a workflow (its root task) created in dokuments in a collaboration, as it is now: what it makes later is not. A document or page made in the workflow for a file made before it, and not shared, is left out and reported; `dryRun` only says what would be put in
+  """
+  shareWorkflow(input: ShareWorkflowInput!): WorkflowShare! @auth(required_scopes: ["dokuments_share"], any_role_of: ["dokuments_editor"])
+
+  """
+  Take a file out of a collaboration, with what it brought that nothing else there needs
+  """
+  removeFromCollaboration(input: CollaborationObjectInput!): Collaboration! @auth(required_scopes: ["dokuments_share"], any_role_of: ["dokuments_editor"])
+
+  """
+  Take everything dokuments put in a collaboration (by its key) out of it: whoever was granted it sees nothing of it here any more. lok's collaboration, and its grants, stay
+  """
+  deleteCollaboration(key: ID!): ID! @auth(required_scopes: ["dokuments_share"], any_role_of: ["dokuments_editor"])
 }
 
 type OCRPageResult {
@@ -221,21 +366,30 @@ input OffsetPaginationInput {
   limit: Int
 }
 
-type Page {
+type Page @identified(by: "@dokuments/page") {
   id: ID!
   document: Document!
   index: Int!
   image: MediaStore!
 
-  """The content of the page as a flat string."""
-  content: String!
-  ocrResult: OCRPageResult!
+  """
+  The content of the page as a flat string. Null when no text was recognised on it.
+  """
+  content: String
+  ocrResult: OCRPageResult
 }
 
 input PageFilter {
   ids: [ID!]
+
+  """
+  Only what is in this collaboration (its key): put in, or part of what was
+  """
+  inCollaboration: ID
+
+  """Only what the workflow (its root task id) created"""
+  createdUnder: ID
   id: ID
-  name: StrFilterLookup
   search: String
   AND: PageFilter
   OR: PageFilter
@@ -249,6 +403,19 @@ type Query {
   files(filters: FileFilter, pagination: OffsetPaginationInput): [File!]! @auth(required_scopes: ["dokuments_read"])
   documents(filters: DocumentFilter, pagination: OffsetPaginationInput): [Document!]! @auth(required_scopes: ["dokuments_read"])
   pages(filters: PageFilter, pagination: OffsetPaginationInput): [Page!]! @auth(required_scopes: ["dokuments_read"])
+
+  """
+  List the organization's collaborations that hold something of dokuments (a guest: the collaborations granted to them)
+  """
+  collaborations(pagination: OffsetPaginationInput = null): [Collaboration!]! @auth(required_scopes: ["dokuments_read"])
+
+  """Get a single collaboration by its key (lok's): what was put in it here"""
+  collaboration(key: ID!): Collaboration! @auth(required_scopes: ["dokuments_read"])
+
+  """
+  Count the collaborations `collaborations` lists, and the objects in them
+  """
+  collaborationsStats: CollaborationStats! @auth(required_scopes: ["dokuments_read"])
   file(
     """The unique identifier of an object"""
     id: ID!
@@ -281,6 +448,51 @@ input RequestMediaUploadInput {
   contentType: String = null
 }
 
+"""Put what a workflow created in a collaboration, as it is now"""
+input ShareWorkflowInput {
+  """The collaboration's key (lok's)"""
+  collaboration: ID!
+
+  """
+  The workflow: the id of the task a person started, the root of every task it caused
+  """
+  rootTask: ID!
+
+  """Only say what would be put in, and what left out"""
+  dryRun: Boolean! = false
+
+  """The collaboration's name, kept here when this puts the first things in"""
+  name: String = null
+}
+
+"""An object, by its structure and id"""
+type SharedObject {
+  """The structure the object is known by: @mikro/scene"""
+  identifier: String
+
+  """The object's id"""
+  object: ID!
+}
+
+"""
+Created in the workflow, but part of something made before it that is not shared: left out
+"""
+type SkippedObject {
+  """The structure the object is known by"""
+  identifier: String
+
+  """The object's id"""
+  object: ID!
+
+  """The structure of what it is part of"""
+  wholeIdentifier: String
+
+  """
+  The id of what it is part of: put that in, and share the workflow again, to bring it
+  """
+  whole: ID!
+}
+
 input StrFilterLookup {
   exact: String
   iExact: String
@@ -304,6 +516,33 @@ input StrFilterLookup {
 type Subscription {
   """Subscribe to real-time file updates"""
   files(dataset: ID = null): FileEvent! @auth(required_scopes: ["dokuments_read"])
+}
+
+"""
+What sharing a workflow put in a collaboration here (or, tried, would put in)
+"""
+type WorkflowShare {
+  """The collaboration's key"""
+  collaboration: ID!
+
+  """Whether nothing was written"""
+  dryRun: Boolean!
+
+  """Put in, with what each needs to be seen"""
+  added: [SharedObject!]!
+
+  """
+  How many parts came along with their whole, without being put in themselves
+  """
+  covered: Int!
+
+  """Left out: parts of something made before the workflow and not shared"""
+  skipped: [SkippedObject!]!
+
+  """
+  Structures here that cannot say what created their objects: not looked at
+  """
+  unknown: [String!]!
 }
 
 scalar _Any

@@ -212,8 +212,8 @@ class Page(BaseModel):
     typename: Literal["Page"] = Field(alias="__typename", default="Page", exclude=True)
     id: ID
     index: int
-    content: str
-    "The content of the page as a flat string."
+    content: str | None = Field(default=None)
+    "The content of the page as a flat string. Null when no text was recognised on it."
     model_config = ConfigDict(frozen=True)
 
     class Meta:
@@ -257,6 +257,7 @@ class Document(BaseModel):
     id: ID
     title: str
     pages: tuple[Page, ...]
+    "The document's pages, in reading order (by index)."
     model_config = ConfigDict(frozen=True)
 
     class Meta:
@@ -355,7 +356,7 @@ class RequestMediaAccessMutation(BaseModel):
     """No documentation found for this operation."""
 
     request_media_access: MediaAccessGrant = Field(alias="requestMediaAccess")
-    "Request temporary S3 read credentials for an uploaded file."
+    "Request temporary S3 read credentials for an uploaded file (a file's bytes, or a page's image). A guest of the organization gets them only for what is in one of their collaborations."
 
     class Arguments(BaseModel):
         """Arguments for RequestMediaAccess"""
@@ -682,7 +683,7 @@ class DokumentsApi:
     async def arequest_media_access(self, store_id: str) -> MediaAccessGrant:
         """RequestMediaAccess
 
-        Request temporary S3 read credentials for an uploaded file.
+        Request temporary S3 read credentials for an uploaded file (a file's bytes, or a page's image). A guest of the organization gets them only for what is in one of their collaborations.
 
         Args:
             store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
@@ -701,7 +702,7 @@ class DokumentsApi:
     def request_media_access(self, store_id: str) -> MediaAccessGrant:
         """RequestMediaAccess
 
-        Request temporary S3 read credentials for an uploaded file.
+        Request temporary S3 read credentials for an uploaded file (a file's bytes, or a page's image). A guest of the organization gets them only for what is in one of their collaborations.
 
         Args:
             store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
