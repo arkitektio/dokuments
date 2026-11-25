@@ -6,8 +6,9 @@ from typing import TYPE_CHECKING
 
 import obstore
 from koil import unkoil
-from mikro.io.obstore import create_s3_store
 from rath.scalars import ID
+
+from dokuments.io.s3 import create_s3_store
 
 if TYPE_CHECKING:
     from dokuments.dokuments import Dokuments

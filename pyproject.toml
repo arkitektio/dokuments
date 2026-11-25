@@ -8,8 +8,8 @@ readme = "README.md"
 dependencies = [
     "aiohttp>=3.9.5,<4",
     "koil>=1.0.0",
-    # Uploads go through mikro's big-file upload.
-    "mikro>=15",
+    # Files go to and come from the datalayer's S3 with a scoped grant.
+    "obstore>=0.11.0",
     "rath>=4.1.1",
     "websockets>=15.0.1",
     # The client and structures are declared with arkitekt-spec, its aliases resolved by fakts

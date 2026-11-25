@@ -5,12 +5,12 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from mikro.io.upload import aupload_bigfile
 from pydantic import Field
 from rath.links.parsing import ParsingLink
 from rath.operation import Operation, opify
 
 from dokuments.datalayer import DataLayer
+from dokuments.io.s3 import aupload_bigfile
 from dokuments.scalars import FileLike
 
 if TYPE_CHECKING:
