@@ -659,7 +659,7 @@ requires-dist = [
     { name = "arkitekt-spec", specifier = ">=14" },
     { name = "fakts", specifier = ">=6.1" },
     { name = "koil", specifier = ">=1.0.0" },
-    { name = "mikro", specifier = ">=14.0.1" },
+    { name = "mikro", specifier = ">=15" },
     { name = "rath", specifier = ">=4.1.1" },
     { name = "websockets", specifier = ">=15.0.1" },
 ]
@@ -1167,7 +1167,7 @@ wheels = [
 
 [[package]]
 name = "mikro"
-version = "14.0.1"
+version = "15.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "arkitekt-spec" },
@@ -1183,9 +1183,9 @@ dependencies = [
     { name = "zarr", version = "3.1.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "zarr", version = "3.4.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/da/4b/9413ee02eeb8b1755917634bc6e67cafd8629cd8b5b0de2f8a2fb70fd439/mikro-14.0.1.tar.gz", hash = "sha256:551c5f9eab8aa813f4e6ab3e492bff7d1da79bb75baa42d1425bacf3dd90bda6", size = 526527, upload-time = "2026-11-19T19:50:25.353Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a2/e6/d432da001be9624c1d0d5c70bc68cee2b190cd93f623bba8594ae129986e/mikro-15.0.0.tar.gz", hash = "sha256:885d0a2ff1e513678cba1dc8c9df433f33c7c841be5a92fe8aa22bfd164f5a3a", size = 541231, upload-time = "2026-11-25T13:16:28.966Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/45/54/365605fb829d9c4a4750ddaa38fc6c6e87cb39fbdff8a0cafbd2889295a3/mikro-14.0.1-py3-none-any.whl", hash = "sha256:75f407055e08bda224be9e0fbf15d188e42d59daad2f5e1b823cd0cd16dc7c5e", size = 545735, upload-time = "2026-11-19T19:50:23.667Z" },
+    { url = "https://files.pythonhosted.org/packages/94/92/59acbba6ac5bc12edf63ee3c48691e26ceab9a81f61f35045c19f6573c33/mikro-15.0.0-py3-none-any.whl", hash = "sha256:29b91b406f35182a9d99167df839f55a52764521e1c707662e17e7c4a41e37e6", size = 561066, upload-time = "2026-11-25T13:16:27.842Z" },
 ]
 
 [[package]]
