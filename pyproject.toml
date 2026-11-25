@@ -12,9 +12,9 @@ dependencies = [
     "mikro>=14.0.1",
     "rath>=4.1.1",
     "websockets>=15.0.1",
-    # The service and structures are declared with arkitekt-spec, its aliases resolved by fakts
+    # The client and structures are declared with arkitekt-spec, its aliases resolved by fakts
     # (4.1: a service's scopes).
-    "arkitekt-spec>=12.9",
+    "arkitekt-spec>=14",
     "fakts>=6.1",
 ]
 

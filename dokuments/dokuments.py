@@ -1,8 +1,12 @@
 """The dokuments client."""
 
+import os
 from collections.abc import AsyncGenerator, Generator
-from typing import Any
+from typing import Annotated, Any, Self
 
+from arkitekt_spec.declare.client import client
+from arkitekt_spec.declare.tested import tested_against
+from fakts import Alias, Require, TokenLoader
 from koil import unkoil, unkoil_gen
 from koil.composition import Composition
 from rath.origin import origin_context
@@ -12,7 +16,16 @@ from dokuments.api.schema import DokumentsApi
 from dokuments.datalayer import DataLayer
 from dokuments.rath import DokumentsRath
 
+TESTED = tested_against("dokuments")
+"""The dokuments server this release wants: the one its release job tested it against."""
 
+_API = os.path.join(os.path.dirname(__file__), "api")
+
+
+@client(
+    schema=os.path.join(_API, "schema.graphql"),
+    turms=os.path.join(_API, "project.json"),
+)
 class Dokuments(Composition, DokumentsApi):
     """The dokuments client.
 
@@ -25,6 +38,63 @@ class Dokuments(Composition, DokumentsApi):
 
     rath: DokumentsRath
     datalayer: DataLayer
+
+    @classmethod
+    def from_fakts(
+        cls,
+        dokuments: Annotated[
+            Alias,
+            Require(
+                "live.arkitekt.dokuments",
+                "Where the user's documents live",
+                version=TESTED,
+            ),
+        ],
+        datalayer: Annotated[
+            Alias, Require("live.arkitekt.s3", "Where the documents' files are stored")
+        ],
+        tokens: TokenLoader,
+    ) -> Self:
+        """Built by a run: talks to the resolved dokuments, uploading to its datalayer."""
+        from fakts.contrib.rath.auth import FaktsAuthLink
+        from rath.links.aiohttp import AIOHttpLink
+        from rath.links.compose import compose
+        from rath.links.dictinglink import DictingLink
+        from rath.links.file import FileExtraction
+        from rath.links.graphql_ws import GraphQLWSLink
+        from rath.links.split import SplitLink
+
+        from dokuments.links.upload import UploadLink
+        from graphql import OperationType
+
+        store = DataLayer.from_alias(datalayer)
+        return cls(
+            datalayer=store,
+            rath=DokumentsRath(
+                link=compose(
+                    FileExtraction(),
+                    DictingLink(),
+                    # TODO: a ContextLink (gone from rekuest) used to sit here;
+                    # replace it if anything relied on the context it sent.
+                    # Before the auth link: the upload uses it too.
+                    UploadLink(datalayer=store),
+                    FaktsAuthLink(token_loader=tokens),
+                    SplitLink(
+                        left=AIOHttpLink(
+                            endpoint_url=dokuments.to_http_path("graphql"),
+                            proxy=dokuments.proxy,
+                            ssl_context=dokuments.ssl_context(),
+                        ),
+                        right=GraphQLWSLink(
+                            ws_endpoint_url=dokuments.to_ws_path("graphql"),
+                            proxy=dokuments.proxy,
+                            ssl_context=dokuments.ssl_context(),
+                        ),
+                        split=lambda o: o.node.operation != OperationType.SUBSCRIPTION,
+                    ),
+                ),
+            ),
+        )
 
     @staticmethod
     def _serialize(

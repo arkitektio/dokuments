@@ -23,15 +23,14 @@ and an `a`-prefixed async flavour: `from_file_like` (upload a file),
 
 ### In an arkitekt app
 
-The client is injected by annotation. Add the service to your app and ask for
-`dokuments: Dokuments`:
+The client is injected by annotation: ask for `dokuments: Dokuments`.
 
 ```python
 from arkitekt import App, run
-from dokuments import Dokuments, dokuments_service
+from dokuments import Dokuments
 from dokuments.api.schema import File
 
-app = App("scanner", "0.1.0", services=[dokuments_service])
+app = App("scanner", "0.1.0")
 
 
 @app.action
@@ -50,10 +49,10 @@ and return them directly.
 ### From a script
 
 ```python
-from arkitekt import easy
-from dokuments import dokuments_service
+from arkitekt import connect
+from dokuments import Dokuments
 
-with easy("my-script", dokuments_service) as dokuments:
+with connect(Dokuments) as dokuments:
     file = dokuments.from_file_like(
         file="scan.pdf"
     )  # a path, a Path or a binary file object

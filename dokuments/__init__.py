@@ -1,5 +1,6 @@
-# The service is declared with arkitekt-spec, a core dependency: it is always there.
-from .arkitekt import dokuments as dokuments_service
 from .dokuments import Dokuments
 
-__all__ = ["Dokuments", "dokuments_service"]
+__all__ = ["Dokuments"]
+
+# Marks every type dokuments sends by id, so an app using `Dokuments` finds them.
+from . import structures as _structures  # noqa: E402, F401

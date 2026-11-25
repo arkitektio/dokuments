@@ -1,12 +1,15 @@
 import io
 
-from dokuments import Dokuments, dokuments_service
+from arkitekt_spec.declare.client import client_of
+
+from dokuments import Dokuments
 from dokuments.scalars import FileLike
 
 
-def test_the_service_module_imports() -> None:
-    """The service and its structures load, with every link they compose."""
-    assert dokuments_service is not None and Dokuments is not None
+def test_dokuments_declares_its_client_and_structures() -> None:
+    declaration = client_of(Dokuments)
+    assert declaration is not None and declaration.name == "dokuments"
+    assert [s.identifier for s in declaration.structures] == ["@dokuments/file"]
 
 
 def test_a_file_like_keeps_its_name_and_type() -> None:
